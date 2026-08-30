@@ -28,7 +28,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     title: '值班助手 DutyToDo',
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
