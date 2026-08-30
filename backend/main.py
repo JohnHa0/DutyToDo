@@ -385,3 +385,10 @@ def open_folder():
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    import sys
+    
+    # Run uvicorn on port 8000 directly passing the app object
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
