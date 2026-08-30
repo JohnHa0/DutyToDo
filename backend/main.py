@@ -12,6 +12,18 @@ import jionlp as jio
 # Initialize DB
 init_db()
 
+# Initialize LLM Manager
+try:
+    from llm_service import LLMManager
+    db = next(get_db())
+    enabled_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_enabled').first()
+    path_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_model_path').first()
+    is_enabled = enabled_conf and enabled_conf.value == "true"
+    model_path = path_conf.value if path_conf else ""
+    LLMManager.get_instance().configure(is_enabled, model_path)
+except Exception as e:
+    print(f"Error loading LLM config on startup: {e}")
+
 app = FastAPI(title="Duty Assistant API")
 
 # Setup CORS for Electron/Vite frontend
@@ -110,6 +122,18 @@ def set_config(config: SystemConfigSchema, db: Session = Depends(get_db)):
     
     db.commit()
     db.refresh(db_config)
+
+    # Trigger LLM load if config is updated
+    if config.key in ["llm_enabled", "llm_model_path"]:
+        from llm_service import LLMManager
+        enabled_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_enabled').first()
+        path_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_model_path').first()
+        
+        is_enabled = enabled_conf and enabled_conf.value == "true"
+        model_path = path_conf.value if path_conf else ""
+        
+        LLMManager.get_instance().configure(is_enabled, model_path)
+
     return db_config
 
 @app.get("/api/config/", response_model=List[SystemConfigResponse])
@@ -120,26 +144,56 @@ def get_all_configs(db: Session = Depends(get_db)):
 @app.post("/api/extract/", response_model=NLPExtractResponse)
 def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db)):
     text = request.text
-    result = NLPExtractResponse(title=None, event_time=None, sender_dept=None, contact_person=None)
+    result = NLPExtractResponse(title=None, event_time=None, event_end=None, sender_dept=None, contact_person=None)
     
-    # 1. Extract Time
+    # Try LLM First
+    from llm_service import LLMManager
+    llm = LLMManager.get_instance()
+    if llm.is_ready():
+        parsed = llm.extract_information(text)
+        if parsed:
+            result.title = parsed.get("title")
+            result.sender_dept = parsed.get("sender_dept")
+            result.contact_person = parsed.get("contact_person")
+            
+            try:
+                if parsed.get("event_start"):
+                    result.event_time = datetime.strptime(parsed["event_start"], "%Y-%m-%d %H:%M:%S")
+                if parsed.get("event_end"):
+                    result.event_end = datetime.strptime(parsed["event_end"], "%Y-%m-%d %H:%M:%S")
+            except:
+                pass
+            
+            # Fallback if LLM failed to extract a good title
+            if not result.title:
+                result.title = text[:15] + "..."
+            
+            return result
+
+    # 1. Extract Time (Jionlp fallback)
     try:
         time_res = jio.ner.extract_time(text)
         if time_res and len(time_res) > 0:
-            time_str = time_res[0]['time'][0]
-            try:
-                result.event_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-            except:
-                pass
+            detail = time_res[0].get('detail', {})
+            times = detail.get('time', [])
+            
+            if len(times) > 0:
+                try:
+                    result.event_time = datetime.strptime(times[0], "%Y-%m-%d %H:%M:%S")
+                except:
+                    pass
+            if len(times) > 1 and time_res[0].get('type') == 'time_span':
+                try:
+                    result.event_end = datetime.strptime(times[1], "%Y-%m-%d %H:%M:%S")
+                except:
+                    pass
         
         # Fallback time extraction for casual texts like "9月4日", "下周三"
         if not result.event_time:
-            time_pattern = r'(\d{1,2}月\d{1,2}日)|(下周[一二三四五六日])'
+            time_pattern = r'(\d{1,2}月\d{1,2}日(至\d{1,2}月\d{1,2}日)?)|(下周[一二三四五六日])'
             t_match = re.search(time_pattern, text)
             if t_match:
-                # We can't perfectly map "下周三" to datetime without complex logic, 
-                # but Jionlp usually handles it. We just leave it for now or rely on jionlp
-                pass
+                pass # Jionlp is usually good enough, fallback not fully implemented
     except Exception as e:
         print(f"Error extracting time: {e}")
 

@@ -8,6 +8,7 @@ import './Dashboard.css';
 
 const { Text } = Typography;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 const Dashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -51,6 +52,12 @@ const Dashboard: React.FC = () => {
 
     // Sorting
     return list.sort((a, b) => {
+      // 1. Priority sorting
+      const pA = a.priority === '紧急' ? 3 : (a.priority === '重要' ? 2 : 1);
+      const pB = b.priority === '紧急' ? 3 : (b.priority === '重要' ? 2 : 1);
+      if (pA !== pB) return pB - pA;
+
+      // 2. Time sorting
       if (sortType === 'deadline') {
         if (!a.event_time) return 1;
         if (!b.event_time) return -1;
@@ -74,7 +81,10 @@ const Dashboard: React.FC = () => {
       raw_text: item.raw_text,
       status: item.status,
       priority: item.priority,
-      event_time: item.event_time ? dayjs(item.event_time) : null,
+      event_time: item.event_time ? [
+        dayjs(item.event_time),
+        item.event_end ? dayjs(item.event_end) : dayjs(item.event_time)
+      ] : null,
       routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : []
     });
     setDrawerVisible(true);
@@ -86,7 +96,8 @@ const Dashboard: React.FC = () => {
       
       const payload = {
         ...values,
-        event_time: values.event_time ? values.event_time.format('YYYY-MM-DD HH:mm:ss') : null,
+        event_time: (values.event_time && values.event_time[0]) ? values.event_time[0].format('YYYY-MM-DD HH:mm:ss') : null,
+        event_end: (values.event_time && values.event_time[1]) ? values.event_time[1].format('YYYY-MM-DD HH:mm:ss') : null,
         routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders
       };
       
@@ -104,6 +115,7 @@ const Dashboard: React.FC = () => {
   const timelineItems = displayItems.length > 0 
     ? displayItems.map(item => {
         let color = 'blue';
+        if (item.priority === '重要') color = 'orange';
         if (item.priority === '紧急') color = 'red';
         if (item.status === '已办结') color = 'green';
         
@@ -118,9 +130,12 @@ const Dashboard: React.FC = () => {
                 </Text>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px', color: '#888' }}>
-                <Tag color={color === 'red' ? 'error' : 'default'}>{item.priority}</Tag>
+                <Tag color={color === 'red' ? 'error' : (color === 'orange' ? 'warning' : 'default')}>{item.priority}</Tag>
                 <span>发件: {item.sender_dept || '未知'}</span>
-                <span>截止: {item.event_time ? dayjs(item.event_time).format('MM-DD HH:mm') : '无'}</span>
+                <span>
+                  时间: {item.event_time ? dayjs(item.event_time).format('MM-DD HH:mm') : '无'}
+                  {item.event_end ? ` ~ ${dayjs(item.event_end).format('MM-DD HH:mm')}` : ''}
+                </span>
               </div>
             </>
           )
@@ -216,8 +231,8 @@ const Dashboard: React.FC = () => {
                   <Option value="紧急">紧急</Option>
                 </Select>
               </Form.Item>
-              <Form.Item name="event_time" label="截止时间 (可修改)">
-                <DatePicker showTime style={{ width: '100%' }} />
+              <Form.Item name="event_time" label="截止时间/时间段 (可修改)">
+                <RangePicker showTime style={{ width: '100%' }} placeholder={['开始时间', '结束时间']} />
               </Form.Item>
               <Form.Item name="routed_leaders" label="流转领导记录 (支持多选)">
                 <Select mode="tags" placeholder="选择或输入已流转给哪位领导" allowClear>

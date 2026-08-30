@@ -23,6 +23,7 @@ class Notification(Base):
     raw_text = Column(Text)
     received_time = Column(DateTime, default=datetime.now)
     event_time = Column(DateTime, nullable=True)
+    event_end = Column(DateTime, nullable=True)
     sender_dept = Column(String(100), index=True, nullable=True)
     contact_person = Column(String(255), nullable=True)
     status = Column(Enum(StatusEnum), default=StatusEnum.PENDING, index=True)

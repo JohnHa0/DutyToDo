@@ -35,7 +35,13 @@ const Settings: React.FC = () => {
       if (loadedLeaders) setLeaders(loadedLeaders);
       
       const recorder = await fetchConfig('default_recorder');
-      form.setFieldsValue({ default_recorder: recorder || '当前值班员' });
+      const llm_enabled = await fetchConfig('llm_enabled');
+      const llm_model_path = await fetchConfig('llm_model_path');
+      form.setFieldsValue({ 
+        default_recorder: recorder || '当前值班员',
+        llm_enabled: llm_enabled || 'false',
+        llm_model_path: llm_model_path || ''
+      });
     };
     loadSettings();
   }, [form]);
@@ -43,6 +49,8 @@ const Settings: React.FC = () => {
   const handleSaveBasic = async (values: any) => {
     try {
       await saveConfig('default_recorder', values.default_recorder);
+      await saveConfig('llm_enabled', values.llm_enabled);
+      await saveConfig('llm_model_path', values.llm_model_path);
       message.success('基础设置保存成功');
     } catch (e) {
       message.error('保存失败');
@@ -110,6 +118,19 @@ const Settings: React.FC = () => {
             <Col span={12}>
               <Form.Item name="default_recorder" label="默认值班员姓名">
                 <Input placeholder="输入默认值班员姓名" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="llm_enabled" label="启用本地大模型引擎 (智能摘要提取)" valuePropName="checked">
+                <Select>
+                  <Option value="true">开启 (需配置大模型路径)</Option>
+                  <Option value="false">关闭 (使用基础 NLP)</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="llm_model_path" label="本地大模型模型路径 (GGUF 格式)">
+                <Input placeholder="例如: C:\models\qwen2-1_5b.gguf" />
               </Form.Item>
             </Col>
             <Col span={24}>

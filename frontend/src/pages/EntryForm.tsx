@@ -32,7 +32,10 @@ const EntryForm: React.FC = () => {
         title: res.title || '',
         sender_dept: res.sender_dept || '',
         contact_person: res.contact_person || '',
-        event_time: res.event_time ? dayjs(res.event_time) : null,
+        event_time: res.event_time ? [
+          dayjs(res.event_time),
+          res.event_end ? dayjs(res.event_end) : dayjs(res.event_time)
+        ] : null,
       });
     } catch (error) {
       message.error('智能识别失败，请检查后端连接');
@@ -49,7 +52,8 @@ const EntryForm: React.FC = () => {
         raw_text: rawText,
         sender_dept: values.sender_dept,
         contact_person: values.contact_person,
-        event_time: values.event_time ? values.event_time.format('YYYY-MM-DD HH:mm:ss') : null,
+        event_time: (values.event_time && values.event_time[0]) ? values.event_time[0].format('YYYY-MM-DD HH:mm:ss') : null,
+        event_end: (values.event_time && values.event_time[1]) ? values.event_time[1].format('YYYY-MM-DD HH:mm:ss') : null,
         status: values.status,
         priority: values.priority,
         tags: values.tags ? values.tags.join(',') : '',
@@ -119,8 +123,8 @@ const EntryForm: React.FC = () => {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="event_time" label="日程/截止时间">
-                    <DatePicker showTime style={{ width: '100%' }} placeholder="提取的事件时间" />
+                  <Form.Item name="event_time" label="日程/截止时间段">
+                    <DatePicker.RangePicker showTime style={{ width: '100%' }} placeholder={['开始时间', '结束时间']} />
                   </Form.Item>
                 </Col>
                 <Col span={8}>

@@ -78,7 +78,7 @@ const NotificationList: React.FC = () => {
         '联系人': item.contact_person || '',
         '办理状态': item.status,
         '重要程度': item.priority,
-        '事件时间': item.event_time ? dayjs(item.event_time).format('YYYY-MM-DD HH:mm') : '',
+        '事件时间': item.event_time ? (dayjs(item.event_time).format('YYYY-MM-DD HH:mm') + (item.event_end ? ' ~ ' + dayjs(item.event_end).format('YYYY-MM-DD HH:mm') : '')) : '',
         '获取时间': item.received_time ? dayjs(item.received_time).format('YYYY-MM-DD HH:mm') : '',
         '流转领导': item.routed_leaders || '',
         '部门负责人': item.dept_heads || '',
@@ -96,9 +96,14 @@ const NotificationList: React.FC = () => {
     form.setFieldsValue({
       title: item.title,
       raw_text: item.raw_text,
+      title: item.title,
+      raw_text: item.raw_text,
       status: item.status,
       priority: item.priority,
-      event_time: item.event_time ? dayjs(item.event_time) : null,
+      event_time: item.event_time ? [
+        dayjs(item.event_time),
+        item.event_end ? dayjs(item.event_end) : dayjs(item.event_time)
+      ] : null,
       routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : []
     });
     setDrawerVisible(true);
@@ -110,7 +115,8 @@ const NotificationList: React.FC = () => {
       
       const payload = {
         ...values,
-        event_time: values.event_time ? values.event_time.format('YYYY-MM-DD HH:mm:ss') : null,
+        event_time: (values.event_time && values.event_time[0]) ? values.event_time[0].format('YYYY-MM-DD HH:mm:ss') : null,
+        event_end: (values.event_time && values.event_time[1]) ? values.event_time[1].format('YYYY-MM-DD HH:mm:ss') : null,
         routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders
       };
       
@@ -154,7 +160,7 @@ const NotificationList: React.FC = () => {
     event_time: {
       title: '事件时间',
       dataIndex: 'event_time',
-      render: (text: string) => text ? dayjs(text).format('MM-DD HH:mm') : '-',
+      render: (text: string, record: any) => text ? (dayjs(text).format('MM-DD HH:mm') + (record.event_end ? ' ~ ' + dayjs(record.event_end).format('MM-DD HH:mm') : '')) : '-',
       sorter: (a: any, b: any) => (a.event_time ? dayjs(a.event_time).valueOf() : 0) - (b.event_time ? dayjs(b.event_time).valueOf() : 0)
     },
     received_time: {
@@ -257,7 +263,7 @@ const NotificationList: React.FC = () => {
               <Descriptions.Item label="标题">{selectedItem.title}</Descriptions.Item>
               <Descriptions.Item label="发件部门">{selectedItem.sender_dept}</Descriptions.Item>
               <Descriptions.Item label="联系人">{selectedItem.contact_person}</Descriptions.Item>
-              <Descriptions.Item label="截止时间">{selectedItem.event_time ? dayjs(selectedItem.event_time).format('YYYY-MM-DD HH:mm') : '无'}</Descriptions.Item>
+              <Descriptions.Item label="截止时间">{selectedItem.event_time ? (dayjs(selectedItem.event_time).format('YYYY-MM-DD HH:mm') + (selectedItem.event_end ? ' ~ ' + dayjs(selectedItem.event_end).format('YYYY-MM-DD HH:mm') : '')) : '无'}</Descriptions.Item>
               <Descriptions.Item label="接收时间">{dayjs(selectedItem.received_time).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
             </Descriptions>
             
@@ -282,8 +288,8 @@ const NotificationList: React.FC = () => {
                   <Option value="紧急">紧急</Option>
                 </Select>
               </Form.Item>
-              <Form.Item name="event_time" label="截止时间 (可修改)">
-                <DatePicker showTime style={{ width: '100%' }} />
+              <Form.Item name="event_time" label="截止时间段 (可修改)">
+                <DatePicker.RangePicker showTime style={{ width: '100%' }} placeholder={['开始时间', '结束时间']} />
               </Form.Item>
               <Form.Item name="routed_leaders" label="流转领导记录 (支持多选)">
                 <Select mode="tags" placeholder="选择或输入已流转给哪位领导" allowClear>

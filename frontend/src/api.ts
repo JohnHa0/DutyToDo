@@ -15,6 +15,7 @@ export interface Notification {
   raw_text?: string;
   received_time?: string;
   event_time?: string;
+  event_end?: string;
   sender_dept?: string;
   contact_person?: string;
   status: '待办理' | '正在办理' | '已办结';

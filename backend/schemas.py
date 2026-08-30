@@ -7,6 +7,7 @@ class NotificationBase(BaseModel):
     title: str
     raw_text: Optional[str] = None
     event_time: Optional[datetime] = None
+    event_end: Optional[datetime] = None
     sender_dept: Optional[str] = None
     contact_person: Optional[str] = None
     status: StatusEnum = StatusEnum.PENDING
@@ -37,6 +38,7 @@ class NLPExtractRequest(BaseModel):
 
 class NLPExtractResponse(BaseModel):
     event_time: Optional[datetime] = None
+    event_end: Optional[datetime] = None
     sender_dept: Optional[str] = None
     contact_person: Optional[str] = None
     title: Optional[str] = None
