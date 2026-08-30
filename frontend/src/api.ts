@@ -24,6 +24,7 @@ export interface Notification {
   priority: '普通' | '重要' | '紧急';
   recorder?: string;
   attachments?: any;
+  updated_at?: string;
 }
 
 export const fetchNotifications = async (params?: any) => {

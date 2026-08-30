@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Form, Input, Button, Card, Row, Col, Select, DatePicker, message, Upload } from 'antd';
 import { UploadOutlined, RobotOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { extractNLP, createNotification, Notification } from '../api';
+import { extractNLP, createNotification } from '../api';
+import type { Notification } from '../api';
 
 const { TextArea } = Input;
 const { Option } = Select;

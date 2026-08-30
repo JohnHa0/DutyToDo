@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Input, Select, Space, Row, Col, DatePicker, message, Popconfirm } from 'antd';
 import { SearchOutlined, DownloadOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { fetchNotifications, deleteNotification, Notification } from '../api';
 import dayjs from 'dayjs';
+import { fetchNotifications, deleteNotification } from '../api';
+import type { Notification } from '../api';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;

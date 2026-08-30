@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, Badge, Card, message } from 'antd';
 import type { Dayjs } from 'dayjs';
-import { fetchNotifications, Notification } from '../api';
+import { fetchNotifications } from '../api';
+import type { Notification } from '../api';
 import dayjs from 'dayjs';
 
 const CalendarView: React.FC = () => {
@@ -48,7 +49,7 @@ const CalendarView: React.FC = () => {
     );
   };
 
-  const cellRender = (current: Dayjs, info: { type: string }) => {
+  const cellRender = (current: Dayjs, info: { type: string; originNode?: React.ReactNode }) => {
     if (info.type === 'date') return dateCellRender(current);
     return info.originNode;
   };

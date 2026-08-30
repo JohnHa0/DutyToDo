@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Statistic, List, Tag, Typography, Button } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, FileTextOutlined } from '@ant-design/icons';
-import { fetchNotifications, Notification } from '../api';
+import { fetchNotifications } from '../api';
+import type { Notification } from '../api';
 import dayjs from 'dayjs';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const Dashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
