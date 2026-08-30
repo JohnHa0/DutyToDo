@@ -46,11 +46,10 @@ jobs:
       - name: Build Frontend and DEB (Electron Builder)
         env:
           DEBUG: electron-builder
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd frontend
           npm run build
-          npx electron-builder --linux deb
+          npx electron-builder --linux deb --publish never
           
       - name: Upload DEB Artifact
         uses: actions/upload-artifact@v4
