@@ -40,3 +40,13 @@ class NLPExtractResponse(BaseModel):
     sender_dept: Optional[str] = None
     contact_person: Optional[str] = None
     title: Optional[str] = None
+
+class SystemConfigSchema(BaseModel):
+    key: str
+    value: Any
+
+class SystemConfigResponse(SystemConfigSchema):
+    id: int
+    updated_at: datetime
+    class Config:
+        from_attributes = True

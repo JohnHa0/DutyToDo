@@ -6,13 +6,15 @@ import {
   EditOutlined,
   UnorderedListOutlined,
   CalendarOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import Dashboard from './pages/Dashboard';
 import EntryForm from './pages/EntryForm';
 import NotificationList from './pages/NotificationList';
 import CalendarView from './pages/CalendarView';
 import StatsView from './pages/StatsView';
+import Settings from './pages/Settings';
 
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
@@ -43,6 +45,9 @@ const App: React.FC = () => {
             <Menu.Item key="5" icon={<BarChartOutlined />}>
               <Link to="/stats">统计周报</Link>
             </Menu.Item>
+            <Menu.Item key="6" icon={<SettingOutlined />}>
+              <Link to="/settings">系统设置</Link>
+            </Menu.Item>
           </Menu>
         </Sider>
         <Layout className="site-layout">
@@ -63,6 +68,7 @@ const App: React.FC = () => {
               <Route path="/list" element={<NotificationList />} />
               <Route path="/calendar" element={<CalendarView />} />
               <Route path="/stats" element={<StatsView />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </Content>
         </Layout>

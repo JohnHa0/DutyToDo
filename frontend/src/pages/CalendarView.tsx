@@ -1,18 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Badge, Card, message } from 'antd';
-import type { Dayjs } from 'dayjs';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import { Card, message } from 'antd';
 import { fetchNotifications } from '../api';
 import type { Notification } from '../api';
-import dayjs from 'dayjs';
+import './CalendarView.css'; // Custom styles for weekend highlighting and rounded corners
 
 const CalendarView: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const res = await fetchNotifications();
-        setNotifications(res);
+        const formattedEvents = res
+          .filter((n: Notification) => n.event_time) // Only show items with a specific event time
+          .map((n: Notification) => {
+            let color = '#3788d8'; // Default blue
+            if (n.status === '已办结') color = '#52c41a'; // Green
+            else if (n.priority === '紧急') color = '#ff4d4f'; // Red
+            else if (n.priority === '重要') color = '#faad14'; // Orange
+
+            return {
+              id: String(n.id),
+              title: n.title,
+              start: n.event_time,
+              backgroundColor: color,
+              borderColor: color,
+              extendedProps: {
+                priority: n.priority,
+                status: n.status,
+              }
+            };
+          });
+        setEvents(formattedEvents);
       } catch (e) {
         message.error('加载日程失败');
       }
@@ -20,43 +42,23 @@ const CalendarView: React.FC = () => {
     loadData();
   }, []);
 
-  const getListData = (value: Dayjs) => {
-    const listData: any[] = [];
-    const dateStr = value.format('YYYY-MM-DD');
-    
-    notifications.forEach(n => {
-      if (n.event_time && dayjs(n.event_time).format('YYYY-MM-DD') === dateStr) {
-        listData.push({
-          type: n.status === '已办结' ? 'success' : n.priority === '紧急' ? 'error' : 'warning',
-          content: n.title,
-        });
-      }
-    });
-
-    return listData || [];
-  };
-
-  const dateCellRender = (value: Dayjs) => {
-    const listData = getListData(value);
-    return (
-      <ul className="events" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {listData.map((item, index) => (
-          <li key={index}>
-            <Badge status={item.type as any} text={item.content} style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }} />
-          </li>
-        ))}
-      </ul>
-    );
-  };
-
-  const cellRender = (current: Dayjs, info: { type: string; originNode?: React.ReactNode }) => {
-    if (info.type === 'date') return dateCellRender(current);
-    return info.originNode;
-  };
-
   return (
-    <Card bordered={false} className="shadow-sm">
-      <Calendar cellRender={cellRender} />
+    <Card bordered={false} className="shadow-sm calendar-wrapper">
+      <FullCalendar
+        plugins={[dayGridPlugin as any, timeGridPlugin as any]}
+        initialView="dayGridMonth"
+        headerToolbar={{
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,timeGridWeek'
+        }}
+        events={events}
+        locale="zh-cn"
+        height={700}
+        eventClick={(info) => {
+          message.info(`通知: ${info.event.title} [${info.event.extendedProps.status}]`);
+        }}
+      />
     </Card>
   );
 };

@@ -47,6 +47,26 @@ export const deleteNotification = async (id: number) => {
   return response.data;
 };
 
+// System Config APIs
+export interface SystemConfig {
+  key: string;
+  value: any;
+}
+
+export const fetchConfig = async (key: string) => {
+  try {
+    const response = await apiClient.get(`/config/${key}`);
+    return response.data.value;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const saveConfig = async (key: string, value: any) => {
+  const response = await apiClient.post('/config/', { key, value });
+  return response.data.value;
+};
+
 export const extractNLP = async (text: string) => {
   const response = await apiClient.post('/extract/', { text });
   return response.data;

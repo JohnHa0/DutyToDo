@@ -34,3 +34,11 @@ class Notification(Base):
     attachments = Column(JSON, nullable=True) # Stored as JSON array
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+class SystemConfig(Base):
+    __tablename__ = "system_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, index=True)
+    value = Column(JSON)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

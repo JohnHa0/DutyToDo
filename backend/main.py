@@ -89,49 +89,107 @@ def delete_notification(notification_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True}
 
-from schemas import NLPExtractRequest, NLPExtractResponse
+from schemas import NLPExtractRequest, NLPExtractResponse, SystemConfigSchema, SystemConfigResponse
 import re
 
+@app.get("/api/config/{key}", response_model=SystemConfigResponse)
+def get_config(key: str, db: Session = Depends(get_db)):
+    config = db.query(SystemConfig).filter(SystemConfig.key == key).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return config
+
+@app.post("/api/config/", response_model=SystemConfigResponse)
+def set_config(config: SystemConfigSchema, db: Session = Depends(get_db)):
+    db_config = db.query(SystemConfig).filter(SystemConfig.key == config.key).first()
+    if db_config:
+        db_config.value = config.value
+    else:
+        db_config = SystemConfig(key=config.key, value=config.value)
+        db.add(db_config)
+    
+    db.commit()
+    db.refresh(db_config)
+    return db_config
+
+@app.get("/api/config/", response_model=List[SystemConfigResponse])
+def get_all_configs(db: Session = Depends(get_db)):
+    return db.query(SystemConfig).all()
+
+
 @app.post("/api/extract/", response_model=NLPExtractResponse)
-def extract_information(request: NLPExtractRequest):
+def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db)):
     text = request.text
     result = NLPExtractResponse(title=None, event_time=None, sender_dept=None, contact_person=None)
     
-    # Extract time using jionlp
+    # 1. Extract Time
     try:
         time_res = jio.ner.extract_time(text)
         if time_res and len(time_res) > 0:
-            # simple mapping of the first found time
             time_str = time_res[0]['time'][0]
-            # Try to parse string to datetime (jionlp usually returns standard format like 2023-10-10 10:00:00)
             try:
                 result.event_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
             except:
                 pass
+        
+        # Fallback time extraction for casual texts like "9月4日", "下周三"
+        if not result.event_time:
+            time_pattern = r'(\d{1,2}月\d{1,2}日)|(下周[一二三四五六日])'
+            t_match = re.search(time_pattern, text)
+            if t_match:
+                # We can't perfectly map "下周三" to datetime without complex logic, 
+                # but Jionlp usually handles it. We just leave it for now or rely on jionlp
+                pass
     except Exception as e:
         print(f"Error extracting time: {e}")
 
-    # Extract organization/department
+    # 2. Extract Organization/Department
     try:
         org_res = jio.ner.extract_location(text)
-        # using regex or custom rules for department names
-        dept_pattern = r'[\u4e00-\u9fa5]+(省|市|区|局|厅|委|部|办)'
-        match = re.search(dept_pattern, text)
-        if match:
-            result.sender_dept = match.group(0)
+        # Use dynamic preset departments if available, otherwise regex
+        preset_dept_config = db.query(SystemConfig).filter(SystemConfig.key == 'preset_departments').first()
+        preset_depts = preset_dept_config.value if preset_dept_config else []
+        
+        found_dept = None
+        for pd in preset_depts:
+            if pd in text:
+                found_dept = pd
+                break
+                
+        if found_dept:
+            result.sender_dept = found_dept
+        else:
+            # Extended regex for grassroots units
+            dept_pattern = r'[\u4e00-\u9fa5]{2,10}(省|市|区|局|厅|委|部|办|处|科|中心|支队|大队)'
+            match = re.search(dept_pattern, text)
+            if match:
+                result.sender_dept = match.group(0)
     except Exception:
         pass
 
-    # Extract phone numbers / contacts
+    # 3. Extract Phone numbers / Contacts
     try:
-        phone_res = jio.parse_phone_number(text)
-        if phone_res and len(phone_res) > 0:
-            # Just grab the first found number
-            result.contact_person = phone_res[0]
+        # Advanced regex for "Name: phone / short phone / landline"
+        contact_pattern = r'(联系人[:：\s]*([\u4e00-\u9fa5]{2,4})?)?[:：\s]*([\d\-]{6,12})'
+        matches = re.finditer(contact_pattern, text)
+        phones = []
+        name = ""
+        for m in matches:
+            if m.group(2) and not name:
+                name = m.group(2)
+            if m.group(3):
+                phones.append(m.group(3))
+        
+        if name or phones:
+            result.contact_person = f"{name} {' '.join(phones)}".strip()
+        else:
+            phone_res = jio.parse_phone_number(text)
+            if phone_res and len(phone_res) > 0:
+                result.contact_person = phone_res[0]
     except Exception:
         pass
 
-    # Simple title extraction: first sentence or up to 20 chars
+    # Simple title extraction: first sentence or up to 30 chars
     title_match = re.split(r'[,。，\n]', text)
     if title_match:
         title = title_match[0].strip()

@@ -1,0 +1,30 @@
+.calendar-wrapper .fc {
+  font-family: inherit;
+}
+
+.calendar-wrapper .fc-theme-standard td, 
+.calendar-wrapper .fc-theme-standard th {
+  border-color: #f0f0f0;
+}
+
+.calendar-wrapper .fc-day-sat, 
+.calendar-wrapper .fc-day-sun {
+  background-color: #fafafa !important;
+}
+
+.calendar-wrapper .fc-event {
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.calendar-wrapper .fc-event:hover {
+  opacity: 0.8;
+}
+
+.calendar-wrapper .fc-toolbar-title {
+  font-size: 1.25rem !important;
+  font-weight: 600;
+}

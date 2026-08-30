@@ -5,7 +5,7 @@
   "type": "module",
   "main": "main.cjs",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173/ electron .\"",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
@@ -13,10 +13,14 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.2",
+    "@fullcalendar/daygrid": "^6.1.21",
+    "@fullcalendar/react": "^7.0.2",
+    "@fullcalendar/timegrid": "^6.1.21",
     "antd": "^6.6.2",
     "axios": "^1.20.0",
     "dayjs": "^1.11.23",
     "react": "^19.2.8",
+    "react-calendar-heatmap": "^1.10.0",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.10.1",
@@ -25,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
+    "@types/react-calendar-heatmap": "^1.9.0",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "concurrently": "^10.0.5",
