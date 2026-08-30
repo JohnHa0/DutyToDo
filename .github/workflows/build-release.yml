@@ -34,7 +34,27 @@ jobs:
       - name: Build Backend (PyInstaller)
         run: |
           cd backend
-          pyinstaller --name backend_server --onefile --noconsole --collect-all uvicorn --collect-all fastapi --collect-all pydantic --collect-all llama_cpp --copy-metadata fastapi main.py
+          pyinstaller \
+            --name backend_server \
+            --onefile \
+            --collect-all uvicorn \
+            --collect-all fastapi \
+            --collect-all pydantic \
+            --collect-all llama_cpp \
+            --copy-metadata fastapi \
+            --hidden-import uvicorn.logging \
+            --hidden-import uvicorn.loops \
+            --hidden-import uvicorn.loops.auto \
+            --hidden-import uvicorn.protocols \
+            --hidden-import uvicorn.protocols.http \
+            --hidden-import uvicorn.protocols.http.auto \
+            --hidden-import uvicorn.protocols.http.h11_impl \
+            --hidden-import uvicorn.protocols.websockets \
+            --hidden-import uvicorn.protocols.websockets.auto \
+            --hidden-import uvicorn.lifespan \
+            --hidden-import uvicorn.lifespan.on \
+            --hidden-import uvicorn.lifespan.off \
+            main.py
           
       - name: Setup Node.js
         uses: actions/setup-node@v4

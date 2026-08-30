@@ -56,6 +56,10 @@ from fastapi import Query
 def read_root():
     return {"status": "ok", "message": "Duty Assistant API is running"}
 
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok"}
+
 @app.post("/api/notifications/", response_model=NotificationResponse)
 def create_notification(notification: NotificationCreate, db: Session = Depends(get_db)):
     db_notification = Notification(**notification.model_dump())
