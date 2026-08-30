@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Input, Select, Space, Row, Col, DatePicker, message, Popconfirm, Drawer, Form, Descriptions, Popover, Checkbox } from 'antd';
+import { Table, Tag, Button, Input, Select, Space, Row, Col, DatePicker, message, Popconfirm, Drawer, Form, Descriptions, Popover, Checkbox, Upload } from 'antd';
 import { SearchOutlined, DownloadOutlined, DeleteOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons';
 import { fetchNotifications, deleteNotification, updateNotification, fetchConfig } from '../api';
 import type { Notification } from '../api';
@@ -17,6 +17,7 @@ const ALL_COLUMNS = [
   { key: 'received_time', label: '接收时间' },
   { key: 'contact_person', label: '联系人' },
   { key: 'routed_leaders', label: '流转领导' },
+  { key: 'handler', label: '办理人' },
   { key: 'tags', label: '业务标签' }
 ];
 
@@ -81,6 +82,7 @@ const NotificationList: React.FC = () => {
         '事件时间': item.event_time ? (dayjs(item.event_time).format('YYYY-MM-DD HH:mm') + (item.event_end ? ' ~ ' + dayjs(item.event_end).format('YYYY-MM-DD HH:mm') : '')) : '',
         '获取时间': item.received_time ? dayjs(item.received_time).format('YYYY-MM-DD HH:mm') : '',
         '流转领导': item.routed_leaders || '',
+        '办理人': item.handler || '',
         '部门负责人': item.dept_heads || '',
         '标签': item.tags || ''
       }));
@@ -95,18 +97,28 @@ const NotificationList: React.FC = () => {
     setSelectedItem(item);
     form.setFieldsValue({
       title: item.title,
-      raw_text: item.raw_text,
-      title: item.title,
+      sender_dept: item.sender_dept || '',
+      contact_person: item.contact_person || '',
+      tags: item.tags ? item.tags.split(',') : [],
       raw_text: item.raw_text,
       status: item.status,
       priority: item.priority,
+      received_time: item.received_time ? dayjs(item.received_time) : null,
       event_time: item.event_time ? [
         dayjs(item.event_time),
         item.event_end ? dayjs(item.event_end) : dayjs(item.event_time)
       ] : null,
-      routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : []
+      routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : [],
+      handler: item.handler || '',
+      attachments: (item.attachments || []).map((f: any) => ({ ...f, status: 'done', url: f.url?.startsWith('/') ? `http://127.0.0.1:8000${f.url}` : f.url }))
     });
     setDrawerVisible(true);
+  };
+
+  
+  const normFile = (e: any) => {
+    if (Array.isArray(e)) return e;
+    return e?.fileList;
   };
 
   const handleDrawerSave = async () => {
@@ -115,9 +127,15 @@ const NotificationList: React.FC = () => {
       
       const payload = {
         ...values,
+        sender_dept: values.sender_dept,
+        contact_person: values.contact_person,
+        tags: values.tags ? values.tags.join(',') : '',
+        received_time: values.received_time ? values.received_time.format('YYYY-MM-DD HH:mm:ss') : undefined,
         event_time: (values.event_time && values.event_time[0]) ? values.event_time[0].format('YYYY-MM-DD HH:mm:ss') : null,
         event_end: (values.event_time && values.event_time[1]) ? values.event_time[1].format('YYYY-MM-DD HH:mm:ss') : null,
-        routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders
+        routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders,
+        handler: values.handler,
+        attachments: values.attachments ? values.attachments.map((f: any) => ({ uid: f.uid, name: f.name, url: (f.response?.url || f.url)?.startsWith('/') ? `http://127.0.0.1:8000${f.response?.url || f.url}` : (f.response?.url || f.url) })) : []
       };
       
       await updateNotification(selectedItem!.id!, payload);
@@ -171,6 +189,7 @@ const NotificationList: React.FC = () => {
     },
     contact_person: { title: '联系人', dataIndex: 'contact_person' },
     routed_leaders: { title: '流转领导', dataIndex: 'routed_leaders' },
+    handler: { title: '办理人', dataIndex: 'handler' },
     tags: { 
       title: '业务标签', 
       dataIndex: 'tags',
@@ -263,13 +282,24 @@ const NotificationList: React.FC = () => {
               <Descriptions.Item label="标题">{selectedItem.title}</Descriptions.Item>
               <Descriptions.Item label="发件部门">{selectedItem.sender_dept}</Descriptions.Item>
               <Descriptions.Item label="联系人">{selectedItem.contact_person}</Descriptions.Item>
-              <Descriptions.Item label="截止时间">{selectedItem.event_time ? (dayjs(selectedItem.event_time).format('YYYY-MM-DD HH:mm') + (selectedItem.event_end ? ' ~ ' + dayjs(selectedItem.event_end).format('YYYY-MM-DD HH:mm') : '')) : '无'}</Descriptions.Item>
+              <Descriptions.Item label="起止时间">{selectedItem.event_time ? (dayjs(selectedItem.event_time).format('YYYY-MM-DD HH:mm') + (selectedItem.event_end ? ' ~ ' + dayjs(selectedItem.event_end).format('YYYY-MM-DD HH:mm') : '')) : '无'}</Descriptions.Item>
               <Descriptions.Item label="接收时间">{dayjs(selectedItem.received_time).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
             </Descriptions>
             
             <Form layout="vertical" form={form}>
               <Form.Item name="title" label="通知标题 (可编辑)" rules={[{ required: true }]}>
                 <Input placeholder="输入标题" />
+              </Form.Item>
+                            <Form.Item name="sender_dept" label="发件部门 (可修改)">
+                <Select mode="tags" placeholder="选择或输入" allowClear>
+                </Select>
+              </Form.Item>
+              <Form.Item name="contact_person" label="原联系人及电话 (可修改)">
+                <Input placeholder="提取的联系人信息" />
+              </Form.Item>
+              <Form.Item name="tags" label="业务标签 (可修改)">
+                <Select mode="tags" placeholder="选择或输入标签" allowClear>
+                </Select>
               </Form.Item>
               <Form.Item name="raw_text" label="原文内容 (可编辑)">
                 <Input.TextArea rows={6} placeholder="输入原文内容" />
@@ -288,8 +318,19 @@ const NotificationList: React.FC = () => {
                   <Option value="紧急">紧急</Option>
                 </Select>
               </Form.Item>
-              <Form.Item name="event_time" label="截止时间段 (可修改)">
+                            <Form.Item name="received_time" label="收件时间 (可修改)">
+                <DatePicker showTime style={{ width: '100%' }} format="YYYY-MM-DD HH:mm:ss" />
+              </Form.Item>
+              <Form.Item name="event_time" label="起止时间段 (可修改)">
                 <DatePicker.RangePicker showTime style={{ width: '100%' }} placeholder={['开始时间', '结束时间']} />
+              </Form.Item>
+              <Form.Item name="handler" label="办理人 (可编辑)">
+                <Input placeholder="输入办理人姓名" />
+              </Form.Item>
+              <Form.Item name="attachments" label="附件管理 (可修改)" valuePropName="fileList" getValueFromEvent={normFile}>
+                <Upload.Dragger multiple action="http://localhost:8000/api/upload" showUploadList={true}>
+                  <p className="ant-upload-text">点击或拖拽文件上传</p>
+                </Upload.Dragger>
               </Form.Item>
               <Form.Item name="routed_leaders" label="流转领导记录 (支持多选)">
                 <Select mode="tags" placeholder="选择或输入已流转给哪位领导" allowClear>

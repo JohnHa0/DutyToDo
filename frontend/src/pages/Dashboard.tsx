@@ -6,7 +6,7 @@ import type { Notification } from '../api';
 import dayjs from 'dayjs';
 import './Dashboard.css';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
@@ -15,11 +15,11 @@ const Dashboard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [sortType, setSortType] = useState<string>('deadline');
   const [timeRange, setTimeRange] = useState<string>('today');
-  
+
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Notification | null>(null);
   const [form] = Form.useForm();
-  
+
   const [presetLeaders, setPresetLeaders] = useState<string[]>([]);
 
   const loadData = async () => {
@@ -39,7 +39,7 @@ const Dashboard: React.FC = () => {
 
   // Time Filtering
   const today = dayjs().format('YYYY-MM-DD');
-  
+
   let timeFiltered = notifications;
   if (timeRange === 'today') {
     timeFiltered = notifications.filter(n => dayjs(n.event_time || n.received_time).format('YYYY-MM-DD') === today);
@@ -107,14 +107,14 @@ const Dashboard: React.FC = () => {
   const handleDrawerSave = async () => {
     try {
       const values = await form.validateFields();
-      
+
       const payload = {
         ...values,
         event_time: (values.event_time && values.event_time[0]) ? values.event_time[0].format('YYYY-MM-DD HH:mm:ss') : null,
         event_end: (values.event_time && values.event_time[1]) ? values.event_time[1].format('YYYY-MM-DD HH:mm:ss') : null,
         routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders
       };
-      
+
       await updateNotification(selectedItem!.id!, payload);
       message.success('更新成功');
       setDrawerVisible(false);
@@ -124,37 +124,63 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleStatusChange = async (e: React.MouseEvent, id: number, newStatus: string) => {
+    e.stopPropagation();
+    try {
+      await updateNotification(id, { status: newStatus } as any);
+      message.success('状态已更新为: ' + newStatus);
+      loadData();
+    } catch (error) {
+      message.error('更新失败');
+    }
+  };
+
   const displayItems = getFilteredItems(filterStatus ? timeFiltered : pendingItems);
 
-  const timelineItems = displayItems.length > 0 
+  const timelineItems = displayItems.length > 0
     ? displayItems.map(item => {
-        let color = 'blue';
-        if (item.priority === '重要') color = 'orange';
-        if (item.priority === '紧急') color = 'red';
-        if (item.status === '已办结') color = 'green';
-        
-        return {
-          color,
-          key: item.id,
-          children: (
-            <>
-              <div style={{ marginBottom: 4 }}>
-                <Text strong style={{ fontSize: 16, cursor: 'pointer', color: '#1890ff' }} onClick={() => openDrawer(item)}>
-                  {item.title}
-                </Text>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px', color: '#888' }}>
-                <Tag color={color === 'red' ? 'error' : (color === 'orange' ? 'warning' : 'default')}>{item.priority}</Tag>
-                <span>发件: {item.sender_dept || '未知'}</span>
-                <span>
-                  时间: {item.event_time ? dayjs(item.event_time).format('MM-DD HH:mm') : '无'}
-                  {item.event_end ? ` ~ ${dayjs(item.event_end).format('MM-DD HH:mm')}` : ''}
-                </span>
-              </div>
-            </>
-          )
-        };
-      })
+      let color = 'blue';
+      if (item.priority === '重要') color = 'orange';
+      if (item.priority === '紧急') color = 'red';
+      if (item.status === '已办结') color = 'green';
+
+      return {
+        color,
+        key: item.id,
+        children: (
+          <>
+            <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Text strong style={{ fontSize: 16, cursor: 'pointer', color: '#1890ff', paddingRight: 16 }} onClick={() => openDrawer(item)}>
+                {item.title}
+              </Text>
+              <Space size="small">
+                {item.status !== '正在办理' && (
+                  <Button size="small" type="dashed" onClick={(e) => handleStatusChange(e, item.id!, '正在办理')}>
+                    设为办理中
+                  </Button>
+                )}
+                {item.status !== '已办结' && (
+                  <Button size="small" type="primary" ghost onClick={(e) => handleStatusChange(e, item.id!, '已办结')}>
+                    一键办结
+                  </Button>
+                )}
+              </Space>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px', color: '#888' }}>
+              <Tag color={color === 'red' ? 'error' : (color === 'orange' ? 'warning' : 'default')}>{item.priority}</Tag>
+              <span>发件: {item.sender_dept || '未知'}</span>
+              <span>
+                时间: {item.event_time ? dayjs(item.event_time).format('MM-DD HH:mm') : '无'}
+                {item.event_end ? ` ~ ${dayjs(item.event_end).format('MM-DD HH:mm')}` : ''}
+              </span>
+              <span style={{ marginLeft: 'auto', paddingLeft: 8, color: color === 'green' ? '#52c41a' : '#888' }}>
+                状态: {item.status}
+              </span>
+            </div>
+          </>
+        )
+      };
+    })
     : [{ color: 'gray', children: <div style={{ color: '#999', padding: 20 }}>暂无数据</div> }];
 
   return (
@@ -162,7 +188,7 @@ const Dashboard: React.FC = () => {
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card bordered={false} className={`stat-card ${filterStatus === 'urgent' ? 'active' : ''}`} style={{ borderLeft: '4px solid #ff4d4f' }} onClick={() => handleCardClick('urgent')}>
-            <Statistic title="🔥 重点关注 (紧急/重要)" value={urgentItems.length} valueStyle={{ color: '#ff4d4f' }} prefix={<ExclamationCircleOutlined />} />
+            <Statistic title="🔥 重点关注" value={urgentItems.length} valueStyle={{ color: '#ff4d4f' }} prefix={<ExclamationCircleOutlined />} />
           </Card>
         </Col>
         <Col span={6}>
@@ -182,8 +208,8 @@ const Dashboard: React.FC = () => {
         </Col>
       </Row>
 
-      <Card 
-        bordered={false} 
+      <Card
+        bordered={false}
         className="shadow-sm glass-card"
         title={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -233,7 +259,7 @@ const Dashboard: React.FC = () => {
               <Descriptions.Item label="截止时间">{selectedItem.event_time ? dayjs(selectedItem.event_time).format('YYYY-MM-DD HH:mm') : '无'}</Descriptions.Item>
               <Descriptions.Item label="接收时间">{dayjs(selectedItem.received_time).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
             </Descriptions>
-            
+
             <Form layout="vertical" form={form}>
               <Form.Item name="title" label="通知标题 (可编辑)" rules={[{ required: true }]}>
                 <Input placeholder="输入标题" />

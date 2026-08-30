@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Divider, Select } from 'antd';
-import { FolderOpenOutlined } from '@ant-design/icons';
-import { fetchConfig, saveConfig, triggerSelectFile } from '../api';
+import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Divider, Select, Tabs, Popconfirm } from 'antd';
+import { FolderOpenOutlined, DownloadOutlined, DeleteOutlined, DatabaseOutlined, SettingOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { fetchConfig, saveConfig, triggerSelectFile, exportDatabase, clearDatabase, openFolder } from '../api';
 
 const { Option } = Select;
+const { TabPane } = Tabs;
 
 const COLORS = ['#f50', '#2db7f5', '#87d068', '#108ee9', '#purple', '#volcano', '#magenta'];
 
@@ -66,7 +67,7 @@ const Settings: React.FC = () => {
     setDepartments(updated);
     setNewDept('');
     await saveConfig('preset_departments', updated);
-    message.success('已添加');
+    message.success('已添加部门');
   };
 
   const handleRemoveDept = async (dept: string) => {
@@ -100,7 +101,7 @@ const Settings: React.FC = () => {
     setLeaders(updated);
     setNewLeader('');
     await saveConfig('preset_leaders', updated);
-    message.success('已添加');
+    message.success('已添加领导');
   };
 
   const handleRemoveLeader = async (leader: string) => {
@@ -109,110 +110,181 @@ const Settings: React.FC = () => {
     await saveConfig('preset_leaders', updated);
   };
 
+  const handleClearDB = async () => {
+    try {
+      await clearDatabase();
+      message.success('数据库已清空 (不含配置信息)');
+    } catch(e) {
+      message.error('清空失败');
+    }
+  };
+
+  const renderBasicSettings = () => (
+    <Card bordered={false} className="shadow-sm">
+      <Form form={form} layout="vertical" onFinish={handleSaveBasic}>
+        <Row gutter={24}>
+          <Col span={12}>
+            <Form.Item name="default_recorder" label="默认值班员姓名">
+              <Input placeholder="输入默认值班员姓名" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="llm_enabled" label="启用本地大模型引擎 (智能摘要提取)" valuePropName="checked">
+              <Select>
+                <Option value="true">开启 (需配置大模型路径)</Option>
+                <Option value="false">关闭 (使用基础 NLP)</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item label="本地大模型模型路径 (GGUF 格式)">
+              <Space.Compact style={{ width: '100%' }}>
+                <Form.Item name="llm_model_path" noStyle>
+                  <Input placeholder="例如: C:\models\qwen2-1_5b.gguf" />
+                </Form.Item>
+                <Button icon={<FolderOpenOutlined />} onClick={async () => {
+                  const path = await triggerSelectFile();
+                  if (path) form.setFieldsValue({ llm_model_path: path });
+                }}>选择模型</Button>
+              </Space.Compact>
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Button type="primary" htmlType="submit">保存基本设置</Button>
+          </Col>
+        </Row>
+      </Form>
+    </Card>
+  );
+
+  const renderDictionary = () => (
+    <Row gutter={[24, 24]}>
+      <Col xs={24} lg={8}>
+        <Card title="发文单位/部门" style={{ height: '100%' }} bordered={false} className="shadow-sm">
+          <div style={{ marginBottom: 16 }}>
+            {departments.map(dept => (
+              <Tag key={dept} closable onClose={() => handleRemoveDept(dept)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
+                {dept}
+              </Tag>
+            ))}
+            {departments.length === 0 && <span style={{ color: '#999' }}>暂无预设部门</span>}
+          </div>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Input 
+              placeholder="新增部门名称 (例如: 信保科)" 
+              value={newDept} 
+              onChange={e => setNewDept(e.target.value)} 
+              onPressEnter={handleAddDept}
+            />
+            <Button onClick={handleAddDept}>添加部门</Button>
+          </Space>
+        </Card>
+      </Col>
+      
+      <Col xs={24} lg={8}>
+        <Card title="业务标签 (Tags)" style={{ height: '100%' }} bordered={false} className="shadow-sm">
+          <div style={{ marginBottom: 16 }}>
+            {tags.map(tag => (
+              <Tag key={tag.name} color={tag.color} closable onClose={() => handleRemoveTag(tag.name)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
+                {tag.name}
+              </Tag>
+            ))}
+            {tags.length === 0 && <span style={{ color: '#999' }}>暂无预设标签</span>}
+          </div>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Input 
+              placeholder="新增标签名称 (例如: 会议)" 
+              value={newTagName} 
+              onChange={e => setNewTagName(e.target.value)} 
+            />
+            <Select value={newTagColor} onChange={setNewTagColor} style={{ width: 120 }}>
+              {COLORS.map(c => <Option key={c} value={c}><span style={{ color: c }}>●</span> {c}</Option>)}
+            </Select>
+            <Button onClick={handleAddTag}>添加标签</Button>
+          </Space>
+        </Card>
+      </Col>
+
+      <Col xs={24} lg={8}>
+        <Card title="流转领导 (Leaders)" style={{ height: '100%' }} bordered={false} className="shadow-sm">
+          <div style={{ marginBottom: 16 }}>
+            {leaders.map(leader => (
+              <Tag key={leader} closable onClose={() => handleRemoveLeader(leader)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
+                {leader}
+              </Tag>
+            ))}
+            {leaders.length === 0 && <span style={{ color: '#999' }}>暂无预设领导</span>}
+          </div>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Input 
+              placeholder="新增领导姓名 (例如: 张局长)" 
+              value={newLeader} 
+              onChange={e => setNewLeader(e.target.value)} 
+              onPressEnter={handleAddLeader}
+            />
+            <Button onClick={handleAddLeader}>添加领导</Button>
+          </Space>
+        </Card>
+      </Col>
+    </Row>
+  );
+
+  const renderDatabaseMgmt = () => (
+    <Row gutter={[24, 24]}>
+      <Col span={12}>
+        <Card title="数据导出备份" bordered={false} className="shadow-sm">
+          <p style={{ color: '#666', marginBottom: 20 }}>
+            一键下载 SQLite 数据库文件 (duty_todo.db)，建议您定期备份系统数据。
+          </p>
+          <Button type="primary" icon={<DownloadOutlined />} onClick={exportDatabase}>
+            导出数据库 (.db)
+          </Button>
+        </Card>
+      </Col>
+      <Col span={12}>
+        <Card title="附件存储管理" bordered={false} className="shadow-sm">
+          <p style={{ color: '#666', marginBottom: 20 }}>
+            打开系统本地附件存储目录。
+          </p>
+          <Button type="default" icon={<FolderOpenOutlined />} onClick={openFolder}>
+            打开附件文件夹
+          </Button>
+        </Card>
+      </Col>
+      <Col span={24}>
+        <Card title="危险操作 (Danger Zone)" bordered={false} className="shadow-sm" style={{ borderLeft: '4px solid #ff4d4f' }}>
+          <p style={{ color: '#ff4d4f', marginBottom: 20 }}>
+            清空所有台账记录（字典和配置会保留）。此操作不可逆转，请在操作前确保已导出备份数据！
+          </p>
+          <Popconfirm
+            title="您确定要清空所有台账数据吗？"
+            description="此操作不可逆，请确认您已做好备份！"
+            onConfirm={handleClearDB}
+            okText="确认清空"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button danger icon={<DeleteOutlined />}>清空业务数据</Button>
+          </Popconfirm>
+        </Card>
+      </Col>
+    </Row>
+  );
+
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
       <h2 style={{ marginBottom: 24 }}>系统设置 (System Config)</h2>
-      
-      <Card title="基础设置" bordered={false} className="shadow-sm" style={{ marginBottom: 24 }}>
-        <Form form={form} layout="vertical" onFinish={handleSaveBasic}>
-          <Row gutter={24}>
-            <Col span={12}>
-              <Form.Item name="default_recorder" label="默认值班员姓名">
-                <Input placeholder="输入默认值班员姓名" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="llm_enabled" label="启用本地大模型引擎 (智能摘要提取)" valuePropName="checked">
-                <Select>
-                  <Option value="true">开启 (需配置大模型路径)</Option>
-                  <Option value="false">关闭 (使用基础 NLP)</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item label="本地大模型模型路径 (GGUF 格式)">
-                <Space.Compact style={{ width: '100%' }}>
-                  <Form.Item name="llm_model_path" noStyle>
-                    <Input placeholder="例如: C:\models\qwen2-1_5b.gguf" />
-                  </Form.Item>
-                  <Button icon={<FolderOpenOutlined />} onClick={async () => {
-                    const path = await triggerSelectFile();
-                    if (path) form.setFieldsValue({ llm_model_path: path });
-                  }}>选择模型</Button>
-                </Space.Compact>
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Button type="primary" htmlType="submit">保存基本设置</Button>
-            </Col>
-          </Row>
-        </Form>
-      </Card>
-
-      <Card title="字典管理: 发文单位/部门" bordered={false} className="shadow-sm" style={{ marginBottom: 24 }}>
-        <div style={{ marginBottom: 16 }}>
-          {departments.map(dept => (
-            <Tag key={dept} closable onClose={() => handleRemoveDept(dept)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
-              {dept}
-            </Tag>
-          ))}
-          {departments.length === 0 && <span style={{ color: '#999' }}>暂无预设部门</span>}
-        </div>
-        <Divider />
-        <Space>
-          <Input 
-            placeholder="新增部门名称 (例如: 信保科)" 
-            value={newDept} 
-            onChange={e => setNewDept(e.target.value)} 
-            onPressEnter={handleAddDept}
-          />
-          <Button onClick={handleAddDept}>添加部门</Button>
-        </Space>
-      </Card>
-
-      <Card title="字典管理: 业务标签 (Tags)" bordered={false} className="shadow-sm">
-        <div style={{ marginBottom: 16 }}>
-          {tags.map(tag => (
-            <Tag key={tag.name} color={tag.color} closable onClose={() => handleRemoveTag(tag.name)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
-              {tag.name}
-            </Tag>
-          ))}
-          {tags.length === 0 && <span style={{ color: '#999' }}>暂无预设标签</span>}
-        </div>
-        <Divider />
-        <Space>
-          <Input 
-            placeholder="新增标签名称 (例如: 会议)" 
-            value={newTagName} 
-            onChange={e => setNewTagName(e.target.value)} 
-          />
-          <Select value={newTagColor} onChange={setNewTagColor} style={{ width: 120 }}>
-            {COLORS.map(c => <Option key={c} value={c}><span style={{ color: c }}>●</span> {c}</Option>)}
-          </Select>
-          <Button onClick={handleAddTag}>添加标签</Button>
-        </Space>
-      </Card>
-
-      <Card title="字典管理: 流转领导 (Leaders)" bordered={false} className="shadow-sm">
-        <div style={{ marginBottom: 16 }}>
-          {leaders.map(leader => (
-            <Tag key={leader} closable onClose={() => handleRemoveLeader(leader)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
-              {leader}
-            </Tag>
-          ))}
-          {leaders.length === 0 && <span style={{ color: '#999' }}>暂无预设领导</span>}
-        </div>
-        <Divider />
-        <Space>
-          <Input 
-            placeholder="新增领导姓名 (例如: 张局长)" 
-            value={newLeader} 
-            onChange={e => setNewLeader(e.target.value)} 
-            onPressEnter={handleAddLeader}
-          />
-          <Button onClick={handleAddLeader}>添加领导</Button>
-        </Space>
-      </Card>
+      <Tabs defaultActiveKey="1" tabPosition="top" size="large">
+        <TabPane tab={<span><SettingOutlined />基础配置</span>} key="1">
+          {renderBasicSettings()}
+        </TabPane>
+        <TabPane tab={<span><AppstoreOutlined />数据字典</span>} key="2">
+          {renderDictionary()}
+        </TabPane>
+        <TabPane tab={<span><DatabaseOutlined />数据及维护</span>} key="3">
+          {renderDatabaseMgmt()}
+        </TabPane>
+      </Tabs>
     </div>
   );
 };

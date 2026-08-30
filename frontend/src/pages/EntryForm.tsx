@@ -26,6 +26,12 @@ const EntryForm: React.FC = () => {
     loadLeaders();
   }, []);
 
+  
+  const normFile = (e: any) => {
+    if (Array.isArray(e)) return e;
+    return e?.fileList;
+  };
+
   const handleExtract = async () => {
     if (!rawText.trim()) {
       message.warning('请先粘贴通知文本');
@@ -69,6 +75,9 @@ const EntryForm: React.FC = () => {
         routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders,
         dept_heads: values.dept_heads,
         recorder: '当前值班员', // Could be dynamic
+        handler: values.handler,
+        received_time: values.received_time ? values.received_time.format('YYYY-MM-DD HH:mm:ss') : undefined,
+        attachments: values.attachments ? values.attachments.map((f: any) => ({ uid: f.uid, name: f.name, url: (f.response?.url || f.url)?.startsWith('/') ? `http://127.0.0.1:8000${f.response?.url || f.url}` : (f.response?.url || f.url) })) : [],
       };
       
       await createNotification(payload);
@@ -116,7 +125,7 @@ const EntryForm: React.FC = () => {
               form={form} 
               layout="vertical" 
               onFinish={onFinish}
-              initialValues={{ status: '待办理', priority: '普通', create_reminder: true }}
+              initialValues={{ status: '待办理', priority: '普通', create_reminder: true, received_time: dayjs() }}
             >
               <Row gutter={16}>
                 <Col span={24}>
@@ -154,6 +163,11 @@ const EntryForm: React.FC = () => {
                     </Select>
                   </Form.Item>
                 </Col>
+                                <Col span={8}>
+                  <Form.Item name="received_time" label="收件时间 (默认当前)">
+                    <DatePicker showTime style={{ width: '100%' }} format="YYYY-MM-DD HH:mm:ss" />
+                  </Form.Item>
+                </Col>
                 <Col span={8}>
                   <Form.Item name="tags" label="业务标签">
                     <Select mode="multiple" placeholder="选择标签" allowClear>
@@ -173,12 +187,17 @@ const EntryForm: React.FC = () => {
                     </Select>
                   </Form.Item>
                 </Col>
+                                <Col span={12}>
+                  <Form.Item name="handler" label="办理人/承办人">
+                    <Input placeholder="输入负责办理该事项的姓名或部门" />
+                  </Form.Item>
+                </Col>
                 <Col span={24}>
-                    <Form.Item label="附件上传 (支持拖拽)">
-                        <Upload.Dragger multiple action="/api/upload" showUploadList={true}>
+                                        <Form.Item name="attachments" label="附件上传 (支持拖拽)" valuePropName="fileList" getValueFromEvent={normFile}>
+                        <Upload.Dragger multiple action="http://localhost:8000/api/upload" showUploadList={true}>
                             <p className="ant-upload-drag-icon"><UploadOutlined /></p>
                             <p className="ant-upload-text">点击或将文件拖拽到这里上传</p>
-                            <p className="ant-upload-hint">支持 PDF, Word, Excel 等常用文档格式 (单机版直接保存在本地文件夹)</p>
+                            <p className="ant-upload-hint">支持 PDF, Word, Excel 等常用文档格式</p>
                         </Upload.Dragger>
                     </Form.Item>
                 </Col>

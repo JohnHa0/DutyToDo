@@ -16,7 +16,9 @@ class NotificationBase(BaseModel):
     tags: Optional[str] = None
     priority: PriorityEnum = PriorityEnum.NORMAL
     recorder: Optional[str] = None
+    handler: Optional[str] = None
     attachments: Optional[Any] = None
+    received_time: Optional[datetime] = None
 
 class NotificationCreate(NotificationBase):
     pass
@@ -26,7 +28,6 @@ class NotificationUpdate(NotificationBase):
 
 class NotificationResponse(NotificationBase):
     id: int
-    received_time: datetime
     created_at: datetime
     updated_at: datetime
 

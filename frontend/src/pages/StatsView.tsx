@@ -132,8 +132,8 @@ const StatsView: React.FC = () => {
 
       <Row gutter={24}>
         <Col span={12}>
-          <Card title="各部门发文量统计" bordered={false} className="shadow-sm" style={{ height: 400 }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <Card title="各部门发文量统计" bordered={false} className="shadow-sm">
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={deptChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
@@ -146,14 +146,14 @@ const StatsView: React.FC = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="办理状态占比" bordered={false} className="shadow-sm" style={{ height: 400 }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <Card title="办理状态占比" bordered={false} className="shadow-sm">
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={statusChartData}
                   cx="50%"
                   cy="50%"
-                  outerRadius={120}
+                  outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
                   label={(props: any) => `${props.name} ${((props.percent || 0) * 100).toFixed(0)}%`}

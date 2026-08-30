@@ -24,6 +24,7 @@ export interface Notification {
   tags?: string;
   priority: '普通' | '重要' | '紧急';
   recorder?: string;
+  handler?: string;
   attachments?: any;
   updated_at?: string;
 }
@@ -57,7 +58,15 @@ export interface SystemConfig {
 export const fetchConfig = async (key: string) => {
   try {
     const response = await apiClient.get(`/config/${key}`);
-    return response.data.value;
+    const val = response.data.value;
+    if (typeof val === 'string') {
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return val;
+      }
+    }
+    return val;
   } catch (e) {
     return null;
   }
@@ -76,4 +85,18 @@ export const triggerSelectFile = async () => {
 export const extractNLP = async (text: string) => {
   const response = await apiClient.post('/extract/', { text });
   return response.data;
+};
+
+
+export const exportDatabase = async () => {
+  window.open(`${API_BASE_URL}/db/export`, '_blank');
+};
+
+export const clearDatabase = async () => {
+  const response = await apiClient.post('/db/clear');
+  return response.data;
+};
+
+export const openFolder = async () => {
+  await apiClient.get('/config/open_folder');
 };

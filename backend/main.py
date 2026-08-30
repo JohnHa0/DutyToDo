@@ -5,12 +5,22 @@ from datetime import datetime
 from typing import List, Optional
 import os
 
-from models import Notification, StatusEnum, PriorityEnum, Base
+from models import Notification, StatusEnum, PriorityEnum, Base, SystemConfig
 from database import engine, get_db, init_db
 import jionlp as jio
 
 # Initialize DB
 init_db()
+
+# Migration: Add handler column if not exists
+from sqlalchemy import text
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE notifications ADD COLUMN handler VARCHAR(100)"))
+        conn.commit()
+except Exception:
+    pass # Column likely already exists
+
 
 # Initialize LLM Manager
 try:
@@ -141,6 +151,7 @@ def get_config(key: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Config not found")
     return config
 
+
 @app.post("/api/config/", response_model=SystemConfigResponse)
 def set_config(config: SystemConfigSchema, db: Session = Depends(get_db)):
     db_config = db.query(SystemConfig).filter(SystemConfig.key == config.key).first()
@@ -153,23 +164,33 @@ def set_config(config: SystemConfigSchema, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_config)
 
-    # Trigger LLM load if config is updated
     if config.key in ["llm_enabled", "llm_model_path"]:
-        from llm_service import LLMManager
-        enabled_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_enabled').first()
-        path_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_model_path').first()
-        
-        is_enabled = enabled_conf and enabled_conf.value == "true"
-        model_path = path_conf.value if path_conf else ""
-        
-        LLMManager.get_instance().configure(is_enabled, model_path)
+        try:
+            from llm_service import LLMManager
+            enabled_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_enabled').first()
+            path_conf = db.query(SystemConfig).filter(SystemConfig.key == 'llm_model_path').first()
+            
+            enabled_val = False
+            if enabled_conf and enabled_conf.value:
+                try:
+                    val = json.loads(enabled_conf.value) if isinstance(enabled_conf.value, str) else enabled_conf.value
+                    enabled_val = str(val).lower() == "true"
+                except:
+                    enabled_val = str(enabled_conf.value).lower() == "true"
+            
+            model_path = ""
+            if path_conf and path_conf.value:
+                try:
+                    val = json.loads(path_conf.value) if isinstance(path_conf.value, str) else path_conf.value
+                    model_path = str(val)
+                except:
+                    model_path = str(path_conf.value)
+            
+            LLMManager.get_instance().configure(enabled_val, model_path)
+        except Exception as e:
+            print(f"Error initializing LLM in set_config: {e}")
 
     return db_config
-
-@app.get("/api/config/", response_model=List[SystemConfigResponse])
-def get_all_configs(db: Session = Depends(get_db)):
-    return db.query(SystemConfig).all()
-
 
 @app.post("/api/extract/", response_model=NLPExtractResponse)
 def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db)):
@@ -302,3 +323,63 @@ def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db
         result.title = text[:15] + "..."
 
     return result
+
+
+@app.get("/api/db/export")
+def export_database():
+    from fastapi.responses import FileResponse
+    import os
+    from database import DB_DIR
+    db_path = os.path.join(DB_DIR, 'duty_todo.db')
+    if os.path.exists(db_path):
+        return FileResponse(db_path, filename="duty_todo_backup.db")
+    raise HTTPException(status_code=404, detail="Database file not found")
+
+@app.post("/api/db/clear")
+def clear_database(db: Session = Depends(get_db)):
+    from sqlalchemy import text
+    try:
+        db.execute(text("DELETE FROM notifications"))
+        db.commit()
+        return {"message": "Database cleared successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    import shutil
+    import uuid
+    safe_filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, safe_filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"uid": safe_filename, "name": file.filename, "status": "done", "url": f"/api/download/{safe_filename}"}
+
+@app.get("/api/download/{filename}")
+def download_file(filename: str):
+    from fastapi.responses import FileResponse
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path, filename=filename.split('_', 1)[-1])
+    raise HTTPException(status_code=404)
+
+
+@app.get("/api/config/open_folder")
+def open_folder():
+    import subprocess
+    import sys
+    try:
+        if sys.platform == "darwin":
+            subprocess.run(["open", UPLOAD_DIR])
+        elif sys.platform == "win32":
+            os.startfile(UPLOAD_DIR)
+        else:
+            subprocess.run(["xdg-open", UPLOAD_DIR])
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -32,6 +32,7 @@ class Notification(Base):
     tags = Column(String(255), nullable=True) # Stored as comma separated or JSON string
     priority = Column(Enum(PriorityEnum), default=PriorityEnum.NORMAL)
     recorder = Column(String(100), nullable=True)
+    handler = Column(String(100), nullable=True)
     attachments = Column(JSON, nullable=True) # Stored as JSON array
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
