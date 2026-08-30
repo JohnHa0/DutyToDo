@@ -31,7 +31,7 @@ jobs:
       - name: Build Backend (PyInstaller)
         run: |
           cd backend
-          pyinstaller --name backend_server --onefile --noconsole main.py
+          pyinstaller --name backend_server --onefile --noconsole --collect-all uvicorn --collect-all fastapi --collect-all pydantic --collect-all llama_cpp --copy-metadata fastapi main.py
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
