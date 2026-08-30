@@ -66,9 +66,9 @@ const App: React.FC = () => {
           </div>
         </Sider>
         <Layout className="site-layout">
-          <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', WebkitAppRegion: 'drag' }}>
-            <Title level={4} style={{ margin: 0, WebkitAppRegion: 'no-drag' }}>值班通知智能流转系统</Title>
-            <div style={{ WebkitAppRegion: 'no-drag' }}>
+          <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', WebkitAppRegion: 'drag' } as any}>
+            <Title level={4} style={{ margin: 0, WebkitAppRegion: 'no-drag' } as any}>值班通知智能流转系统</Title>
+            <div style={{ WebkitAppRegion: 'no-drag' } as any}>
               <Badge count={0} offset={[10, 0]}>
                 <div style={{ width: 32, height: 32, background: '#e6f7ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #91d5ff' }}>
                   值
