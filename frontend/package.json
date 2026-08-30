@@ -54,14 +54,15 @@
         "deb"
       ],
       "category": "Office",
-      "icon": "build/icon.png"
+      "icon": "build/icons"
     },
     "extraResources": [
       {
         "from": "../backend/dist/backend_server",
         "to": "backend_server"
       }
-    ]
+    ],
+    "icon": "build/icon.png"
   },
   "author": "DutyToDo Team <team@dutytodo.local>",
   "description": "值班通知智能流转系统",
