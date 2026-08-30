@@ -63,7 +63,7 @@
       }
     ]
   },
-  "author": "DutyToDo Team",
+  "author": "DutyToDo Team <team@dutytodo.local>",
   "description": "值班通知智能流转系统",
   "homepage": "https://github.com/DutyToDo"
 }
