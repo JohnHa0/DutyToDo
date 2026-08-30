@@ -19,6 +19,9 @@ const Settings: React.FC = () => {
   const [tags, setTags] = useState<TagItem[]>([]);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(COLORS[0]);
+  
+  const [leaders, setLeaders] = useState<string[]>([]);
+  const [newLeader, setNewLeader] = useState('');
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -27,6 +30,9 @@ const Settings: React.FC = () => {
       
       const loadedTags = await fetchConfig('preset_tags');
       if (loadedTags) setTags(loadedTags);
+
+      const loadedLeaders = await fetchConfig('preset_leaders');
+      if (loadedLeaders) setLeaders(loadedLeaders);
       
       const recorder = await fetchConfig('default_recorder');
       form.setFieldsValue({ default_recorder: recorder || '当前值班员' });
@@ -75,6 +81,23 @@ const Settings: React.FC = () => {
     const updated = tags.filter(t => t.name !== tagName);
     setTags(updated);
     await saveConfig('preset_tags', updated);
+  };
+
+  const handleAddLeader = async () => {
+    if (!newLeader.trim()) return;
+    if (leaders.includes(newLeader)) return message.warning('领导已存在');
+    
+    const updated = [...leaders, newLeader];
+    setLeaders(updated);
+    setNewLeader('');
+    await saveConfig('preset_leaders', updated);
+    message.success('已添加');
+  };
+
+  const handleRemoveLeader = async (leader: string) => {
+    const updated = leaders.filter(l => l !== leader);
+    setLeaders(updated);
+    await saveConfig('preset_leaders', updated);
   };
 
   return (
@@ -137,6 +160,27 @@ const Settings: React.FC = () => {
             {COLORS.map(c => <Option key={c} value={c}><span style={{ color: c }}>●</span> {c}</Option>)}
           </Select>
           <Button onClick={handleAddTag}>添加标签</Button>
+        </Space>
+      </Card>
+
+      <Card title="字典管理: 流转领导 (Leaders)" bordered={false} className="shadow-sm">
+        <div style={{ marginBottom: 16 }}>
+          {leaders.map(leader => (
+            <Tag key={leader} closable onClose={() => handleRemoveLeader(leader)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
+              {leader}
+            </Tag>
+          ))}
+          {leaders.length === 0 && <span style={{ color: '#999' }}>暂无预设领导</span>}
+        </div>
+        <Divider />
+        <Space>
+          <Input 
+            placeholder="新增领导姓名 (例如: 张局长)" 
+            value={newLeader} 
+            onChange={e => setNewLeader(e.target.value)} 
+            onPressEnter={handleAddLeader}
+          />
+          <Button onClick={handleAddLeader}>添加领导</Button>
         </Space>
       </Card>
     </div>

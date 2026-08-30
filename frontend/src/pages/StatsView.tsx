@@ -120,8 +120,8 @@ const StatsView: React.FC = () => {
           }}
           tooltipDataAttrs={(value: any) => {
             return {
-              'data-tip': `${value.date || ''} : ${value.count || 0} 条通知`,
-            };
+              'data-tip': `${value?.date || ''} : ${value?.count || 0} 条通知`,
+            } as any;
           }}
         />
       </Card>

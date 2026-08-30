@@ -45,7 +45,7 @@ const CalendarView: React.FC = () => {
   return (
     <Card bordered={false} className="shadow-sm calendar-wrapper">
       <FullCalendar
-        plugins={[dayGridPlugin as any, timeGridPlugin as any]}
+        plugins={[dayGridPlugin, timeGridPlugin]}
         initialView="dayGridMonth"
         headerToolbar={{
           left: 'prev,next today',

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Input, Select, Space, Row, Col, DatePicker, message, Popconfirm, Drawer, Form, Descriptions, Popover, Checkbox } from 'antd';
 import { SearchOutlined, DownloadOutlined, DeleteOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons';
-import { fetchNotifications, deleteNotification, updateNotification } from '../api';
+import { fetchNotifications, deleteNotification, updateNotification, fetchConfig } from '../api';
 import type { Notification } from '../api';
 import dayjs from 'dayjs';
 
@@ -33,6 +33,8 @@ const NotificationList: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<Notification | null>(null);
   const [form] = Form.useForm();
   
+  const [presetLeaders, setPresetLeaders] = useState<string[]>([]);
+  
   // Column Visibility
   const [visibleColumns, setVisibleColumns] = useState<string[]>(['title', 'sender_dept', 'status', 'priority', 'event_time']);
 
@@ -45,7 +47,9 @@ const NotificationList: React.FC = () => {
       
       const res = await fetchNotifications(filters);
       setData(res);
-    } catch (error) {
+      const leaders = await fetchConfig('preset_leaders');
+      if (leaders) setPresetLeaders(leaders);
+    } catch (e) {
       message.error('加载数据失败');
     } finally {
       setLoading(false);
@@ -90,9 +94,12 @@ const NotificationList: React.FC = () => {
   const openDrawer = (item: Notification) => {
     setSelectedItem(item);
     form.setFieldsValue({
+      title: item.title,
+      raw_text: item.raw_text,
       status: item.status,
       priority: item.priority,
-      routed_leaders: item.routed_leaders
+      event_time: item.event_time ? dayjs(item.event_time) : null,
+      routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : []
     });
     setDrawerVisible(true);
   };
@@ -100,7 +107,14 @@ const NotificationList: React.FC = () => {
   const handleDrawerSave = async () => {
     try {
       const values = await form.validateFields();
-      await updateNotification(selectedItem!.id!, values);
+      
+      const payload = {
+        ...values,
+        event_time: values.event_time ? values.event_time.format('YYYY-MM-DD HH:mm:ss') : null,
+        routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders
+      };
+      
+      await updateNotification(selectedItem!.id!, payload);
       message.success('更新成功');
       setDrawerVisible(false);
       loadData();
@@ -248,6 +262,12 @@ const NotificationList: React.FC = () => {
             </Descriptions>
             
             <Form layout="vertical" form={form}>
+              <Form.Item name="title" label="通知标题 (可编辑)" rules={[{ required: true }]}>
+                <Input placeholder="输入标题" />
+              </Form.Item>
+              <Form.Item name="raw_text" label="原文内容 (可编辑)">
+                <Input.TextArea rows={6} placeholder="输入原文内容" />
+              </Form.Item>
               <Form.Item name="status" label="办理状态">
                 <Select>
                   <Option value="待办理">待办理</Option>
@@ -262,8 +282,13 @@ const NotificationList: React.FC = () => {
                   <Option value="紧急">紧急</Option>
                 </Select>
               </Form.Item>
-              <Form.Item name="routed_leaders" label="流转领导记录">
-                <Input placeholder="输入已流转给哪位领导" />
+              <Form.Item name="event_time" label="截止时间 (可修改)">
+                <DatePicker showTime style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="routed_leaders" label="流转领导记录 (支持多选)">
+                <Select mode="tags" placeholder="选择或输入已流转给哪位领导" allowClear>
+                  {presetLeaders.map(l => <Option key={l} value={l}>{l}</Option>)}
+                </Select>
               </Form.Item>
             </Form>
           </div>

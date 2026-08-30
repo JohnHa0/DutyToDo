@@ -189,10 +189,24 @@ def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db
     except Exception:
         pass
 
-    # Simple title extraction: first sentence or up to 30 chars
-    title_match = re.split(r'[,。，\n]', text)
-    if title_match:
-        title = title_match[0].strip()
-        result.title = title[:30] + "..." if len(title) > 30 else title
+    # Smart title extraction / summarization
+    # 1. Remove contact info and time info to get the core action
+    clean_text = text
+    if result.event_time:
+        clean_text = re.sub(r'\d{1,2}月\d{1,2}日', '', clean_text)
+    if result.contact_person:
+        clean_text = re.sub(r'联系人.*', '', clean_text)
+    
+    # 2. Extract the first meaningful sentence/phrase
+    sentences = re.split(r'[，。！？,!?\n；;]', clean_text)
+    meaningful = [s.strip() for s in sentences if len(s.strip()) > 3]
+    
+    if meaningful:
+        title = meaningful[0]
+        # Remove common prefixes like '通知：', 'xx科通知'
+        title = re.sub(r'^.*?通知[:：]', '', title).strip()
+        result.title = title[:20] + "..." if len(title) > 20 else title
+    else:
+        result.title = text[:15] + "..."
 
     return result
