@@ -42,5 +42,25 @@
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "wait-on": "^9.1.0"
+  },
+  "build": {
+    "appId": "com.dutytodo.app",
+    "productName": "值班助手",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Office",
+      "icon": "public/icon.png"
+    },
+    "extraResources": [
+      {
+        "from": "../backend/dist/backend_server",
+        "to": "backend_server"
+      }
+    ]
   }
 }

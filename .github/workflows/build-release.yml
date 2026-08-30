@@ -1,0 +1,57 @@
+name: Build and Release DEB (AMD64 & ARM64)
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04-arm]
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install Python Dependencies & PyInstaller
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          
+      - name: Build Backend (PyInstaller)
+        run: |
+          cd backend
+          pyinstaller --name backend_server --onefile --noconsole main.py
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm install
+          
+      - name: Build Frontend and DEB (Electron Builder)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd frontend
+          npm run build
+          npx electron-builder --linux deb
+          
+      - name: Upload DEB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DutyToDo-Linux-DEB-${{ matrix.os }}
+          path: frontend/dist-electron/*.deb

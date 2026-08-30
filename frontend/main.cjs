@@ -1,7 +1,27 @@
 const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
+const fs = require('fs');
 
 let mainWindow;
+
+
+let backendProcess = null;
+
+function startBackend() {
+  if (app.isPackaged) {
+    const backendPath = path.join(process.resourcesPath, 'backend_server');
+    if (fs.existsSync(backendPath)) {
+      console.log('Starting bundled backend server from: ', backendPath);
+      backendProcess = spawn(backendPath, [], { detached: false });
+      
+      backendProcess.stdout.on('data', (data) => console.log(`Backend: ${data}`));
+      backendProcess.stderr.on('data', (data) => console.error(`Backend Err: ${data}`));
+    } else {
+      console.error('Backend executable not found at: ', backendPath);
+    }
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -23,6 +43,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  startBackend();
   createWindow();
 
   app.on('activate', () => {
@@ -46,4 +67,10 @@ ipcMain.on('show-notification', (event, { title, body }) => {
 // Open external links in default browser
 ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
+});
+
+app.on('will-quit', () => {
+  if (backendProcess) {
+    backendProcess.kill();
+  }
 });

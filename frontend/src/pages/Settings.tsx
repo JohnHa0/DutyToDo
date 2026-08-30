@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Divider, Select, Tabs, Popconfirm } from 'antd';
+import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Select, Tabs, Popconfirm } from 'antd';
 import { FolderOpenOutlined, DownloadOutlined, DeleteOutlined, DatabaseOutlined, SettingOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { fetchConfig, saveConfig, triggerSelectFile, exportDatabase, clearDatabase, openFolder } from '../api';
 
@@ -17,11 +17,11 @@ const Settings: React.FC = () => {
   const [form] = Form.useForm();
   const [departments, setDepartments] = useState<string[]>([]);
   const [newDept, setNewDept] = useState('');
-  
+
   const [tags, setTags] = useState<TagItem[]>([]);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(COLORS[0]);
-  
+
   const [leaders, setLeaders] = useState<string[]>([]);
   const [newLeader, setNewLeader] = useState('');
 
@@ -29,17 +29,17 @@ const Settings: React.FC = () => {
     const loadSettings = async () => {
       const depts = await fetchConfig('preset_departments');
       if (depts) setDepartments(depts);
-      
+
       const loadedTags = await fetchConfig('preset_tags');
       if (loadedTags) setTags(loadedTags);
 
       const loadedLeaders = await fetchConfig('preset_leaders');
       if (loadedLeaders) setLeaders(loadedLeaders);
-      
+
       const recorder = await fetchConfig('default_recorder');
       const llm_enabled = await fetchConfig('llm_enabled');
       const llm_model_path = await fetchConfig('llm_model_path');
-      form.setFieldsValue({ 
+      form.setFieldsValue({
         default_recorder: recorder || '当前值班员',
         llm_enabled: llm_enabled || 'false',
         llm_model_path: llm_model_path || ''
@@ -62,7 +62,7 @@ const Settings: React.FC = () => {
   const handleAddDept = async () => {
     if (!newDept.trim()) return;
     if (departments.includes(newDept)) return message.warning('部门已存在');
-    
+
     const updated = [...departments, newDept];
     setDepartments(updated);
     setNewDept('');
@@ -79,7 +79,7 @@ const Settings: React.FC = () => {
   const handleAddTag = async () => {
     if (!newTagName.trim()) return;
     if (tags.some(t => t.name === newTagName)) return message.warning('标签已存在');
-    
+
     const updated = [...tags, { name: newTagName, color: newTagColor }];
     setTags(updated);
     setNewTagName('');
@@ -96,7 +96,7 @@ const Settings: React.FC = () => {
   const handleAddLeader = async () => {
     if (!newLeader.trim()) return;
     if (leaders.includes(newLeader)) return message.warning('领导已存在');
-    
+
     const updated = [...leaders, newLeader];
     setLeaders(updated);
     setNewLeader('');
@@ -114,7 +114,7 @@ const Settings: React.FC = () => {
     try {
       await clearDatabase();
       message.success('数据库已清空 (不含配置信息)');
-    } catch(e) {
+    } catch (e) {
       message.error('清空失败');
     }
   };
@@ -170,17 +170,17 @@ const Settings: React.FC = () => {
             {departments.length === 0 && <span style={{ color: '#999' }}>暂无预设部门</span>}
           </div>
           <Space direction="vertical" style={{ width: '100%' }}>
-            <Input 
-              placeholder="新增部门名称 (例如: 信保科)" 
-              value={newDept} 
-              onChange={e => setNewDept(e.target.value)} 
+            <Input
+              placeholder="新增部门名称 (例如: 信保科)"
+              value={newDept}
+              onChange={e => setNewDept(e.target.value)}
               onPressEnter={handleAddDept}
             />
             <Button onClick={handleAddDept}>添加部门</Button>
           </Space>
         </Card>
       </Col>
-      
+
       <Col xs={24} lg={8}>
         <Card title="业务标签 (Tags)" style={{ height: '100%' }} bordered={false} className="shadow-sm">
           <div style={{ marginBottom: 16 }}>
@@ -192,10 +192,10 @@ const Settings: React.FC = () => {
             {tags.length === 0 && <span style={{ color: '#999' }}>暂无预设标签</span>}
           </div>
           <Space direction="vertical" style={{ width: '100%' }}>
-            <Input 
-              placeholder="新增标签名称 (例如: 会议)" 
-              value={newTagName} 
-              onChange={e => setNewTagName(e.target.value)} 
+            <Input
+              placeholder="新增标签名称 (例如: 会议)"
+              value={newTagName}
+              onChange={e => setNewTagName(e.target.value)}
             />
             <Select value={newTagColor} onChange={setNewTagColor} style={{ width: 120 }}>
               {COLORS.map(c => <Option key={c} value={c}><span style={{ color: c }}>●</span> {c}</Option>)}
@@ -216,10 +216,10 @@ const Settings: React.FC = () => {
             {leaders.length === 0 && <span style={{ color: '#999' }}>暂无预设领导</span>}
           </div>
           <Space direction="vertical" style={{ width: '100%' }}>
-            <Input 
-              placeholder="新增领导姓名 (例如: 张局长)" 
-              value={newLeader} 
-              onChange={e => setNewLeader(e.target.value)} 
+            <Input
+              placeholder="新增领导姓名 (例如: 张局长)"
+              value={newLeader}
+              onChange={e => setNewLeader(e.target.value)}
               onPressEnter={handleAddLeader}
             />
             <Button onClick={handleAddLeader}>添加领导</Button>
