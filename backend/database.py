@@ -3,7 +3,10 @@ from sqlalchemy.orm import sessionmaker
 from models import Base
 import os
 
-DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+import os
+
+BASE_DIR = os.path.expanduser("~/.dutytodo")
+DB_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DB_DIR, exist_ok=True)
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(DB_DIR, 'duty_todo.db')}"
 

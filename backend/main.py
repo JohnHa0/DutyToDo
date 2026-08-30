@@ -45,7 +45,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "uploads")
+BASE_DIR = os.path.expanduser("~/.dutytodo")
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 from schemas import NotificationCreate, NotificationUpdate, NotificationResponse
@@ -347,7 +348,8 @@ def clear_database(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "uploads")
+BASE_DIR = os.path.expanduser("~/.dutytodo")
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/api/upload")
