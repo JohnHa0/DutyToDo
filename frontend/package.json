@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "dutytodo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -53,7 +53,8 @@
       "target": [
         "deb"
       ],
-      "category": "Office"
+      "category": "Office",
+      "icon": "build/icon.png"
     },
     "extraResources": [
       {
@@ -63,5 +64,6 @@
     ]
   },
   "author": "DutyToDo Team",
-  "description": "值班通知智能流转系统"
+  "description": "值班通知智能流转系统",
+  "homepage": "https://github.com/DutyToDo"
 }

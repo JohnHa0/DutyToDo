@@ -45,6 +45,7 @@ jobs:
           
       - name: Build Frontend and DEB (Electron Builder)
         env:
+          DEBUG: electron-builder
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd frontend
