@@ -56,3 +56,11 @@ jobs:
         with:
           name: DutyToDo-Linux-DEB-${{ matrix.os }}
           path: frontend/dist-electron/*.deb
+          
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: frontend/dist-electron/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
