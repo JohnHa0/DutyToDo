@@ -2,7 +2,8 @@ name: Build and Release DEB (AMD64 & ARM64)
 
 on:
   push:
-    branches: [ master, main ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:

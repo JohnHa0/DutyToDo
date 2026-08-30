@@ -53,8 +53,7 @@
       "target": [
         "deb"
       ],
-      "category": "Office",
-      "icon": "public/icon.png"
+      "category": "Office"
     },
     "extraResources": [
       {
@@ -62,5 +61,7 @@
         "to": "backend_server"
       }
     ]
-  }
+  },
+  "author": "DutyToDo Team",
+  "description": "值班通知智能流转系统"
 }
