@@ -44,6 +44,27 @@ const NotificationList: React.FC = () => {
     }
   };
 
+  const handleExport = () => {
+    import('xlsx').then(XLSX => {
+      const exportData = data.map(item => ({
+        '通知主体': item.title,
+        '发件部门': item.sender_dept || '',
+        '联系人': item.contact_person || '',
+        '办理状态': item.status,
+        '重要程度': item.priority,
+        '事件时间': item.event_time ? dayjs(item.event_time).format('YYYY-MM-DD HH:mm') : '',
+        '获取时间': item.received_time ? dayjs(item.received_time).format('YYYY-MM-DD HH:mm') : '',
+        '流转领导': item.routed_leaders || '',
+        '部门负责人': item.dept_heads || '',
+        '标签': item.tags || ''
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "通知台账");
+      XLSX.writeFile(wb, `值班台账_${dayjs().format('YYYYMMDD')}.xlsx`);
+    });
+  };
+
   const columns = [
     {
       title: '通知主体',
@@ -123,7 +144,7 @@ const NotificationList: React.FC = () => {
            <RangePicker style={{ width: '100%' }} />
         </Col>
         <Col span={6} style={{ textAlign: 'right' }}>
-          <Button type="primary" icon={<DownloadOutlined />}>导出 Excel</Button>
+          <Button type="primary" icon={<DownloadOutlined />} onClick={handleExport}>导出 Excel</Button>
         </Col>
       </Row>
       <Table 

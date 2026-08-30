@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import EntryForm from './pages/EntryForm';
 import NotificationList from './pages/NotificationList';
 import CalendarView from './pages/CalendarView';
+import StatsView from './pages/StatsView';
 
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
@@ -61,7 +62,7 @@ const App: React.FC = () => {
               <Route path="/entry" element={<EntryForm />} />
               <Route path="/list" element={<NotificationList />} />
               <Route path="/calendar" element={<CalendarView />} />
-              <Route path="/stats" element={<div>统计分析功能建设中...</div>} />
+              <Route path="/stats" element={<StatsView />} />
             </Routes>
           </Content>
         </Layout>
