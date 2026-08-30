@@ -1,122 +1,73 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { Layout, Menu, Typography, Badge } from 'antd';
+import {
+  DashboardOutlined,
+  EditOutlined,
+  UnorderedListOutlined,
+  CalendarOutlined,
+  BarChartOutlined
+} from '@ant-design/icons';
+import Dashboard from './pages/Dashboard';
+import EntryForm from './pages/EntryForm';
+import NotificationList from './pages/NotificationList';
+import CalendarView from './pages/CalendarView';
 
-function App() {
-  const [count, setCount] = useState(0)
+const { Header, Content, Sider } = Layout;
+const { Title } = Typography;
+
+const App: React.FC = () => {
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <Router>
+      <Layout style={{ minHeight: '100vh' }}>
+        <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
+          <div style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold' }}>
+            {collapsed ? 'Duty' : '值班助手 DutyToDo'}
+          </div>
+          <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline">
+            <Menu.Item key="1" icon={<DashboardOutlined />}>
+              <Link to="/">今日 Review</Link>
+            </Menu.Item>
+            <Menu.Item key="2" icon={<EditOutlined />}>
+              <Link to="/entry">智能录入</Link>
+            </Menu.Item>
+            <Menu.Item key="3" icon={<UnorderedListOutlined />}>
+              <Link to="/list">台账查询</Link>
+            </Menu.Item>
+            <Menu.Item key="4" icon={<CalendarOutlined />}>
+              <Link to="/calendar">日历视图</Link>
+            </Menu.Item>
+            <Menu.Item key="5" icon={<BarChartOutlined />}>
+              <Link to="/stats">统计周报</Link>
+            </Menu.Item>
+          </Menu>
+        </Sider>
+        <Layout className="site-layout">
+          <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+             <Title level={4} style={{ margin: 0 }}>值班通知智能流转系统</Title>
+             <div>
+                <Badge count={0} offset={[10, 0]}>
+                   <div style={{ width: 32, height: 32, background: '#e6f7ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #91d5ff' }}>
+                      值
+                   </div>
+                </Badge>
+             </div>
+          </Header>
+          <Content style={{ margin: '16px 16px', padding: 24, background: '#fff', borderRadius: 8, overflowY: 'auto', height: 'calc(100vh - 100px)' }}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/entry" element={<EntryForm />} />
+              <Route path="/list" element={<NotificationList />} />
+              <Route path="/calendar" element={<CalendarView />} />
+              <Route path="/stats" element={<div>统计分析功能建设中...</div>} />
+            </Routes>
+          </Content>
+        </Layout>
+      </Layout>
+    </Router>
+  );
+};
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
-}
-
-export default App
+export default App;
