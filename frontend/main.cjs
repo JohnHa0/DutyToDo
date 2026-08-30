@@ -146,3 +146,14 @@ ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
 });
 
+// Window control handlers
+ipcMain.on('window-control', (event, action) => {
+  if (!mainWindow) return;
+  if (action === 'minimize') mainWindow.minimize();
+  else if (action === 'maximize') {
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+  }
+  else if (action === 'close') mainWindow.close();
+});
+
