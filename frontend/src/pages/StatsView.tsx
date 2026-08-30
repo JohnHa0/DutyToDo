@@ -6,6 +6,8 @@ import 'react-calendar-heatmap/dist/styles.css';
 import { fetchNotifications } from '../api';
 import type { Notification } from '../api';
 import dayjs from 'dayjs';
+import { Tooltip as ReactTooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 import './StatsView.css';
 
 const { Title } = Typography;
@@ -120,10 +122,12 @@ const StatsView: React.FC = () => {
           }}
           tooltipDataAttrs={(value: any) => {
             return {
-              'data-tip': `${value?.date || ''} : ${value?.count || 0} 条通知`,
+              'data-tooltip-id': 'heatmap-tooltip',
+              'data-tooltip-content': `${value?.date || ''} : ${value?.count || 0} 条通知`,
             } as any;
           }}
         />
+        <ReactTooltip id="heatmap-tooltip" />
       </Card>
 
       <Row gutter={24}>

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, Row, Col, Select, DatePicker, message, Upload } from 'antd';
 import { UploadOutlined, RobotOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { extractNLP, createNotification } from '../api';
+import { extractNLP, createNotification, fetchConfig } from '../api';
 import type { Notification } from '../api';
 
 const { TextArea } = Input;
@@ -16,6 +16,15 @@ const EntryForm: React.FC = () => {
   const [rawText, setRawText] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [presetLeaders, setPresetLeaders] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadLeaders = async () => {
+      const leaders = await fetchConfig('preset_leaders');
+      if (leaders) setPresetLeaders(leaders);
+    };
+    loadLeaders();
+  }, []);
 
   const handleExtract = async () => {
     if (!rawText.trim()) {
@@ -57,7 +66,7 @@ const EntryForm: React.FC = () => {
         status: values.status,
         priority: values.priority,
         tags: values.tags ? values.tags.join(',') : '',
-        routed_leaders: values.routed_leaders,
+        routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders,
         dept_heads: values.dept_heads,
         recorder: '当前值班员', // Could be dynamic
       };
@@ -158,8 +167,10 @@ const EntryForm: React.FC = () => {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="routed_leaders" label="流转领导">
-                    <Input placeholder="记录已呈报哪些领导" />
+                  <Form.Item name="routed_leaders" label="流转领导记录 (支持多选)">
+                    <Select mode="tags" placeholder="选择或输入领导姓名" allowClear>
+                      {presetLeaders.map(l => <Option key={l} value={l}>{l}</Option>)}
+                    </Select>
                   </Form.Item>
                 </Col>
                 <Col span={24}>

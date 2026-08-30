@@ -103,6 +103,36 @@ def delete_notification(notification_id: int, db: Session = Depends(get_db)):
 
 from schemas import NLPExtractRequest, NLPExtractResponse, SystemConfigSchema, SystemConfigResponse
 import re
+import platform
+import subprocess
+
+@app.get("/api/config/select_file")
+def select_local_file():
+    """Opens a native OS file dialog and returns the selected path"""
+    system = platform.system()
+    path = ""
+    try:
+        if system == "Darwin": # macOS
+            script = 'POSIX path of (choose file with prompt "Select LLM Model" of type {"gguf", "bin"})'
+            result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
+            if result.returncode == 0:
+                path = result.stdout.strip()
+        elif system == "Windows":
+            # Just a basic powershell fallback for Windows if needed
+            script = (
+                "[System.Reflection.Assembly]::LoadWithPartialName('System.windows.forms') | Out-Null;"
+                "$f = New-Object System.Windows.Forms.OpenFileDialog;"
+                "$f.Filter = 'Model Files (*.gguf)|*.gguf|All Files (*.*)|*.*';"
+                "$f.ShowHelp = $true;"
+                "if($f.ShowDialog() -eq 'OK'){ $f.FileName }"
+            )
+            result = subprocess.run(['powershell', '-Command', script], capture_output=True, text=True)
+            if result.returncode == 0:
+                path = result.stdout.strip()
+    except Exception as e:
+        print(f"File dialog error: {e}")
+    
+    return {"path": path}
 
 @app.get("/api/config/{key}", response_model=SystemConfigResponse)
 def get_config(key: str, db: Session = Depends(get_db)):
@@ -161,6 +191,9 @@ def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db
                     result.event_time = datetime.strptime(parsed["event_start"], "%Y-%m-%d %H:%M:%S")
                 if parsed.get("event_end"):
                     result.event_end = datetime.strptime(parsed["event_end"], "%Y-%m-%d %H:%M:%S")
+                elif result.event_time:
+                    # If LLM only provides start, set end to start
+                    result.event_end = result.event_time
             except:
                 pass
             
@@ -194,6 +227,11 @@ def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db
             t_match = re.search(time_pattern, text)
             if t_match:
                 pass # Jionlp is usually good enough, fallback not fully implemented
+                
+        # If event_time exists but event_end does not, set event_end to event_time
+        if result.event_time and not result.event_end:
+            result.event_end = result.event_time
+            
     except Exception as e:
         print(f"Error extracting time: {e}")
 

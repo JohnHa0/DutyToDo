@@ -68,6 +68,11 @@ export const saveConfig = async (key: string, value: any) => {
   return response.data.value;
 };
 
+export const triggerSelectFile = async () => {
+  const response = await apiClient.get('/config/select_file');
+  return response.data.path;
+};
+
 export const extractNLP = async (text: string) => {
   const response = await apiClient.post('/extract/', { text });
   return response.data;

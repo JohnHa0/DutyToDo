@@ -16,7 +16,7 @@ import CalendarView from './pages/CalendarView';
 import StatsView from './pages/StatsView';
 import Settings from './pages/Settings';
 
-const { Header, Content, Sider } = Layout;
+const { Header, Content, Sider, Footer } = Layout;
 const { Title } = Typography;
 
 const App: React.FC = () => {
@@ -25,7 +25,13 @@ const App: React.FC = () => {
   return (
     <Router>
       <Layout style={{ minHeight: '100vh' }}>
-        <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
+        <Sider 
+          collapsible 
+          collapsed={collapsed} 
+          onCollapse={(value) => setCollapsed(value)}
+          breakpoint="lg"
+          collapsedWidth="80"
+        >
           <div style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold' }}>
             {collapsed ? 'Duty' : '值班助手 DutyToDo'}
           </div>
@@ -61,7 +67,7 @@ const App: React.FC = () => {
                 </Badge>
              </div>
           </Header>
-          <Content style={{ margin: '16px 16px', padding: 24, background: '#fff', borderRadius: 8, overflowY: 'auto', height: 'calc(100vh - 100px)' }}>
+          <Content style={{ margin: '16px 16px', padding: 24, background: '#fff', borderRadius: 8, overflowY: 'auto' }}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/entry" element={<EntryForm />} />
@@ -71,6 +77,9 @@ const App: React.FC = () => {
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </Content>
+          <Footer style={{ textAlign: 'center', color: '#888', padding: '10px 50px' }}>
+            DutyToDo v1.1.0 © {new Date().getFullYear()} Designed with Intelligence
+          </Footer>
         </Layout>
       </Layout>
     </Router>

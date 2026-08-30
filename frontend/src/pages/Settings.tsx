@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Divider, Select } from 'antd';
-import { fetchConfig, saveConfig } from '../api';
+import { FolderOpenOutlined } from '@ant-design/icons';
+import { fetchConfig, saveConfig, triggerSelectFile } from '../api';
 
 const { Option } = Select;
 
@@ -129,8 +130,16 @@ const Settings: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="llm_model_path" label="本地大模型模型路径 (GGUF 格式)">
-                <Input placeholder="例如: C:\models\qwen2-1_5b.gguf" />
+              <Form.Item label="本地大模型模型路径 (GGUF 格式)">
+                <Space.Compact style={{ width: '100%' }}>
+                  <Form.Item name="llm_model_path" noStyle>
+                    <Input placeholder="例如: C:\models\qwen2-1_5b.gguf" />
+                  </Form.Item>
+                  <Button icon={<FolderOpenOutlined />} onClick={async () => {
+                    const path = await triggerSelectFile();
+                    if (path) form.setFieldsValue({ llm_model_path: path });
+                  }}>选择模型</Button>
+                </Space.Compact>
               </Form.Item>
             </Col>
             <Col span={24}>

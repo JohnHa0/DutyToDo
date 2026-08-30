@@ -14,6 +14,7 @@ const Dashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [sortType, setSortType] = useState<string>('deadline');
+  const [timeRange, setTimeRange] = useState<string>('today');
   
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Notification | null>(null);
@@ -36,12 +37,25 @@ const Dashboard: React.FC = () => {
     loadData();
   }, []);
 
+  // Time Filtering
   const today = dayjs().format('YYYY-MM-DD');
   
-  const urgentItems = notifications.filter(n => n.priority === '紧急' || n.priority === '重要');
-  const processingItems = notifications.filter(n => n.status === '正在办理');
-  const completedToday = notifications.filter(n => n.status === '已办结' && dayjs(n.updated_at || n.received_time).format('YYYY-MM-DD') === today);
-  const pendingItems = notifications.filter(n => n.status === '待办理');
+  let timeFiltered = notifications;
+  if (timeRange === 'today') {
+    timeFiltered = notifications.filter(n => dayjs(n.event_time || n.received_time).format('YYYY-MM-DD') === today);
+  } else if (timeRange === 'week') {
+    const startOfWeek = dayjs().startOf('week');
+    timeFiltered = notifications.filter(n => dayjs(n.event_time || n.received_time).isAfter(startOfWeek));
+  } else if (timeRange === 'month') {
+    const startOfMonth = dayjs().startOf('month');
+    timeFiltered = notifications.filter(n => dayjs(n.event_time || n.received_time).isAfter(startOfMonth));
+  }
+
+  // Status filtering based on timeFiltered
+  const urgentItems = timeFiltered.filter(n => n.priority === '紧急' || n.priority === '重要');
+  const processingItems = timeFiltered.filter(n => n.status === '正在办理');
+  const completedToday = timeFiltered.filter(n => n.status === '已办结' && dayjs(n.updated_at || n.received_time).format('YYYY-MM-DD') === today);
+  const pendingItems = timeFiltered.filter(n => n.status === '待办理');
 
   const getFilteredItems = (baseList: Notification[]) => {
     let list = baseList;
@@ -110,7 +124,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const displayItems = getFilteredItems(filterStatus ? notifications : pendingItems);
+  const displayItems = getFilteredItems(filterStatus ? timeFiltered : pendingItems);
 
   const timelineItems = displayItems.length > 0 
     ? displayItems.map(item => {
@@ -169,18 +183,28 @@ const Dashboard: React.FC = () => {
       </Row>
 
       <Card 
-        title={filterStatus ? "过滤结果" : "待处理项"}
         bordered={false} 
         className="shadow-sm glass-card"
-        extra={
-          <Segmented 
-            options={[
-              { label: '按截止时间', value: 'deadline' },
-              { label: '按接收时间', value: 'received' }
-            ]}
-            value={sortType}
-            onChange={(val) => setSortType(val as string)}
-          />
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <Title level={4} style={{ margin: 0 }}>时间轴流转展示</Title>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Segmented
+                options={[
+                  { label: '今天', value: 'today' },
+                  { label: '本周', value: 'week' },
+                  { label: '本月', value: 'month' },
+                  { label: '所有', value: 'all' },
+                ]}
+                value={timeRange}
+                onChange={(val) => setTimeRange(val as string)}
+              />
+              <Select value={sortType} onChange={setSortType} style={{ width: 120 }}>
+                <Option value="deadline">按截止时间</Option>
+                <Option value="received">按接收时间</Option>
+              </Select>
+            </div>
+          </div>
         }
       >
         <div className="timeline-container">
