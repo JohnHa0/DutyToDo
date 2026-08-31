@@ -100,10 +100,19 @@ pub fn set_config(key: String, value: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn extract_nlp(text: String) -> Result<Value, String> {
-    // Stub
+    use regex::Regex;
+    
+    // Regex fallback for time extraction (e.g. 2023-10-01 14:00, 明天上午10点)
+    let time_re = Regex::new(r"(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日号]?\s*\d{1,2}[:点]\d{1,2}?|今天|明天|后天|上午|下午|晚上)").unwrap();
+    let time_match = time_re.find(&text).map(|m| m.as_str()).unwrap_or("");
+
+    // Simple place extraction (e.g. 会议室, 办公室)
+    let loc_re = Regex::new(r"([\u4e00-\u9fa5A-Za-z0-9_]+(会议室|办公室|大厅|楼|中心|局))").unwrap();
+    let loc_match = loc_re.find(&text).map(|m| m.as_str()).unwrap_or("");
+
     Ok(serde_json::json!({
-        "time": "",
-        "location": "",
+        "time": time_match,
+        "location": loc_match,
         "people": ""
     }))
 }
