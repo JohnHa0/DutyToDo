@@ -97,6 +97,20 @@ export const clearDatabase = async () => {
   return response.data;
 };
 
+export const importDatabase = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiClient.post('/db/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const fetchLogs = async (lines = 300) => {
+  const response = await apiClient.get('/logs', { params: { lines } });
+  return response.data;
+};
+
 export const openFolder = async () => {
   await apiClient.get('/config/open_folder');
 };

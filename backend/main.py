@@ -4,13 +4,42 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
 import os
+import logging
+
+# ── Logging Setup ────────────────────────────────────────────────────────────
+_LOG_DIR = os.path.join(os.path.expanduser("~"), ".dutytodo", "logs")
+os.makedirs(_LOG_DIR, exist_ok=True)
+_LOG_FILE = os.path.join(_LOG_DIR, "backend.log")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(_LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("duty_backend")
+logger.info("=" * 60)
+logger.info("Backend starting up...")
+logger.info(f"Log file: {_LOG_FILE}")
+# ─────────────────────────────────────────────────────────────────────────────
 
 from models import Notification, StatusEnum, PriorityEnum, Base, SystemConfig
 from database import engine, get_db, init_db
-import jionlp as jio
+try:
+    import jionlp as jio
+except Exception as e:
+    jio = None
+    logger.warning(f"jionlp not available: {e}")
 
 # Initialize DB
-init_db()
+try:
+    init_db()
+    logger.info("Database initialized successfully.")
+except Exception as e:
+    logger.error(f"Database initialization failed: {e}")
+    raise
 
 # Migration: Add handler column if not exists
 from sqlalchemy import text
@@ -31,8 +60,9 @@ try:
     is_enabled = enabled_conf and enabled_conf.value == "true"
     model_path = path_conf.value if path_conf else ""
     LLMManager.get_instance().configure(is_enabled, model_path)
+    logger.info(f"LLM Manager configured. Enabled={is_enabled}, Model={model_path}")
 except Exception as e:
-    print(f"Error loading LLM config on startup: {e}")
+    logger.error(f"Error loading LLM config on startup: {e}")
 
 app = FastAPI(title="Duty Assistant API")
 
@@ -350,6 +380,54 @@ def clear_database(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/db/import")
+async def import_database(file: UploadFile = File(...)):
+    """Replace the current database with an uploaded .db file."""
+    import shutil, tempfile, sqlite3
+    from database import DB_DIR, engine as db_engine
+
+    if not (file.filename or '').endswith('.db'):
+        raise HTTPException(status_code=400, detail="请上传 .db 格式的数据库文件")
+
+    db_path = os.path.join(DB_DIR, 'duty_todo.db')
+    backup_path = os.path.join(DB_DIR, 'duty_todo_pre_import.db')
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    try:
+        # Validate it's a real SQLite file
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        conn.close()
+
+        db_engine.dispose()  # close all connections before replacing file
+
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, backup_path)
+
+        shutil.move(tmp_path, db_path)
+        logger.info(f"Database imported successfully from {file.filename}")
+        return {"message": "数据库导入成功，请重启应用以重新加载数据"}
+    except Exception as e:
+        if os.path.exists(backup_path) and not os.path.exists(db_path):
+            shutil.copy2(backup_path, db_path)
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        logger.error(f"Database import failed: {e}")
+        raise HTTPException(status_code=400, detail=f"导入失败: {str(e)}")
+
+@app.get("/api/logs")
+def get_logs(lines: int = 300):
+    """Return last N lines of the backend log file."""
+    try:
+        with open(_LOG_FILE, 'r', encoding='utf-8') as f:
+            all_lines = f.readlines()
+        return {"logs": ''.join(all_lines[-lines:]), "path": _LOG_FILE}
+    except Exception as e:
+        return {"logs": f"无法读取日志: {e}", "path": _LOG_FILE}
 
 
 BASE_DIR = os.path.expanduser("~/.dutytodo")

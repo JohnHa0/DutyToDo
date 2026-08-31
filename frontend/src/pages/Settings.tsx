@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Select, Tabs, Popconfirm } from 'antd';
-import { FolderOpenOutlined, DownloadOutlined, DeleteOutlined, DatabaseOutlined, SettingOutlined, AppstoreOutlined } from '@ant-design/icons';
-import { fetchConfig, saveConfig, triggerSelectFile, exportDatabase, clearDatabase, openFolder } from '../api';
+import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Select, Tabs, Popconfirm, Modal, Upload } from 'antd';
+import { FolderOpenOutlined, DownloadOutlined, DeleteOutlined, DatabaseOutlined, SettingOutlined, AppstoreOutlined, UploadOutlined, FileTextOutlined, ReloadOutlined } from '@ant-design/icons';
+import { fetchConfig, saveConfig, triggerSelectFile, exportDatabase, clearDatabase, openFolder, importDatabase, fetchLogs } from '../api';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -24,6 +24,12 @@ const Settings: React.FC = () => {
 
   const [leaders, setLeaders] = useState<string[]>([]);
   const [newLeader, setNewLeader] = useState('');
+
+  const [logVisible, setLogVisible] = useState(false);
+  const [logContent, setLogContent] = useState('');
+  const [logPath, setLogPath] = useState('');
+  const [logLoading, setLogLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -229,46 +235,121 @@ const Settings: React.FC = () => {
     </Row>
   );
 
+  const handleImportDB = async (file: File) => {
+    setImporting(true);
+    try {
+      const result = await importDatabase(file);
+      message.success(result.message || '导入成功');
+    } catch (e: any) {
+      message.error(e?.response?.data?.detail || '导入失败');
+    } finally {
+      setImporting(false);
+    }
+    return false;
+  };
+
+  const handleViewLogs = async () => {
+    setLogVisible(true);
+    setLogLoading(true);
+    try {
+      const data = await fetchLogs(300);
+      setLogContent(data.logs || '暂无日志');
+      setLogPath(data.path || '');
+    } catch (e) {
+      setLogContent('无法获取日志，后端可能未运行。\n请检查：~/.dutytodo/logs/backend.log');
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
   const renderDatabaseMgmt = () => (
-    <Row gutter={[24, 24]}>
-      <Col span={12}>
-        <Card title="数据导出备份" bordered={false} className="shadow-sm">
-          <p style={{ color: '#666', marginBottom: 20 }}>
-            一键下载 SQLite 数据库文件 (duty_todo.db)，建议您定期备份系统数据。
-          </p>
-          <Button type="primary" icon={<DownloadOutlined />} onClick={exportDatabase}>
-            导出数据库 (.db)
-          </Button>
-        </Card>
-      </Col>
-      <Col span={12}>
-        <Card title="附件存储管理" bordered={false} className="shadow-sm">
-          <p style={{ color: '#666', marginBottom: 20 }}>
-            打开系统本地附件存储目录。
-          </p>
-          <Button type="default" icon={<FolderOpenOutlined />} onClick={openFolder}>
-            打开附件文件夹
-          </Button>
-        </Card>
-      </Col>
-      <Col span={24}>
-        <Card title="危险操作 (Danger Zone)" bordered={false} className="shadow-sm" style={{ borderLeft: '4px solid #ff4d4f' }}>
-          <p style={{ color: '#ff4d4f', marginBottom: 20 }}>
-            清空所有台账记录（字典和配置会保留）。此操作不可逆转，请在操作前确保已导出备份数据！
-          </p>
-          <Popconfirm
-            title="您确定要清空所有台账数据吗？"
-            description="此操作不可逆，请确认您已做好备份！"
-            onConfirm={handleClearDB}
-            okText="确认清空"
-            cancelText="取消"
-            okButtonProps={{ danger: true }}
-          >
-            <Button danger icon={<DeleteOutlined />}>清空业务数据</Button>
-          </Popconfirm>
-        </Card>
-      </Col>
-    </Row>
+    <>
+      <Row gutter={[24, 24]}>
+        <Col span={12}>
+          <Card title="数据导出备份" bordered={false} className="shadow-sm">
+            <p style={{ color: '#666', marginBottom: 20 }}>
+              一键下载 SQLite 数据库文件 (duty_todo.db)，建议您定期备份系统数据。
+            </p>
+            <Button type="primary" icon={<DownloadOutlined />} onClick={exportDatabase}>
+              导出数据库 (.db)
+            </Button>
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="数据导入恢复" bordered={false} className="shadow-sm">
+            <p style={{ color: '#666', marginBottom: 20 }}>
+              上传备份的 .db 文件以恢复数据。导入前会自动创建当前数据快照备份。
+            </p>
+            <Upload
+              accept=".db"
+              showUploadList={false}
+              beforeUpload={(file) => { handleImportDB(file); return false; }}
+            >
+              <Button icon={<UploadOutlined />} loading={importing}>导入数据库 (.db)</Button>
+            </Upload>
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="附件存储管理" bordered={false} className="shadow-sm">
+            <p style={{ color: '#666', marginBottom: 20 }}>
+              打开系统本地附件存储目录。
+            </p>
+            <Button type="default" icon={<FolderOpenOutlined />} onClick={openFolder}>
+              打开附件文件夹
+            </Button>
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="系统日志" bordered={false} className="shadow-sm">
+            <p style={{ color: '#666', marginBottom: 20 }}>
+              查看后端运行日志，可用于排查后端无法加载的问题。
+            </p>
+            <Button icon={<FileTextOutlined />} onClick={handleViewLogs}>
+              查看运行日志
+            </Button>
+          </Card>
+        </Col>
+        <Col span={24}>
+          <Card title="危险操作 (Danger Zone)" bordered={false} className="shadow-sm" style={{ borderLeft: '4px solid #ff4d4f' }}>
+            <p style={{ color: '#ff4d4f', marginBottom: 20 }}>
+              清空所有台账记录（字典和配置会保留）。此操作不可逆转，请在操作前确保已导出备份数据！
+            </p>
+            <Popconfirm
+              title="您确定要清空所有台账数据吗？"
+              description="此操作不可逆，请确认您已做好备份！"
+              onConfirm={handleClearDB}
+              okText="确认清空"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button danger icon={<DeleteOutlined />}>清空业务数据</Button>
+            </Popconfirm>
+          </Card>
+        </Col>
+      </Row>
+
+      <Modal
+        title={<span><FileTextOutlined /> 后端运行日志</span>}
+        open={logVisible}
+        onCancel={() => setLogVisible(false)}
+        width={800}
+        footer={[
+          <Button key="refresh" icon={<ReloadOutlined />} onClick={handleViewLogs} loading={logLoading}>
+            刷新
+          </Button>,
+          <Button key="close" onClick={() => setLogVisible(false)}>关闭</Button>,
+        ]}
+      >
+        {logPath && <p style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>日志文件：{logPath}</p>}
+        <pre style={{
+          background: '#0d1117', color: '#c9d1d9', padding: 16,
+          borderRadius: 6, maxHeight: 450, overflowY: 'auto',
+          fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap',
+        }}>
+          {logLoading ? '加载中...' : (logContent || '暂无日志')}
+        </pre>
+      </Modal>
+    </>
   );
 
   return (
