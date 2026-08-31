@@ -58,8 +58,17 @@
     },
     "extraResources": [
       {
-        "from": "../backend/dist/backend_server",
-        "to": "backend_server"
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!*.pyc",
+          "!__pycache__/**",
+          "!dist/**",
+          "!build/**",
+          "!venv/**",
+          "!*.spec"
+        ]
       }
     ],
     "icon": "build/icon.png"

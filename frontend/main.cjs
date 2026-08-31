@@ -40,20 +40,39 @@ function startBackend() {
   if (!app.isPackaged) return Promise.resolve();
   
   return new Promise((resolve, reject) => {
-    // --onedir output: resources/backend_server/backend_server (Linux/Mac)
-    const exeName = process.platform === 'win32' ? 'backend_server.exe' : 'backend_server';
-    const backendPath = path.join(process.resourcesPath, 'backend_server', exeName);
-    if (!fs.existsSync(backendPath)) {
-      return reject(new Error('Backend executable not found at: ' + backendPath));
+    const backendDir = path.join(process.resourcesPath, 'backend');
+    const vendorDir = path.join(backendDir, 'vendor');
+    const mainScript = path.join(backendDir, 'main.py');
+
+    if (!fs.existsSync(mainScript)) {
+      return reject(new Error('Backend main.py not found at: ' + mainScript));
     }
-    
-    // Make sure backend is executable
-    try { fs.chmodSync(backendPath, '755'); } catch(e) {}
-    
-    console.log('[Electron] Starting backend server from:', backendPath);
-    backendProcess = spawn(backendPath, [], {
+
+    // Find system Python3
+    const pythonCandidates = ['python3', 'python3.11', 'python3.10', 'python3.9', 'python'];
+    let pythonCmd = 'python3'; // default
+    for (const cmd of pythonCandidates) {
+      try {
+        const result = require('child_process').spawnSync(cmd, ['--version']);
+        if (result.status === 0) { pythonCmd = cmd; break; }
+      } catch {}
+    }
+
+    console.log('[Electron] Launching backend with:', pythonCmd, mainScript);
+    console.log('[Electron] Backend dir:', backendDir);
+    console.log('[Electron] Vendor dir:', vendorDir);
+
+    const env = {
+      ...process.env,
+      PYTHONPATH: vendorDir,
+      PYTHONDONTWRITEBYTECODE: '1',
+    };
+
+    backendProcess = spawn(pythonCmd, [mainScript], {
+      cwd: backendDir,
       detached: false,
       stdio: ['ignore', 'pipe', 'pipe'],
+      env,
     });
 
     backendProcess.stdout.on('data', (data) => console.log(`[Backend] ${data}`));
@@ -70,6 +89,7 @@ function startBackend() {
     resolve();
   });
 }
+
 
 function createWindow() {
   mainWindow = new BrowserWindow({
