@@ -15,7 +15,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04-arm]
+        # Use older ubuntu for AMD64 to ensure broader glibc compatibility (e.g. for Kylin OS)
+        os: [ubuntu-20.04, ubuntu-22.04-arm]
     
     steps:
       - name: Check out repository
@@ -26,21 +27,40 @@ jobs:
         with:
           python-version: '3.11'
           
-      - name: Install backend deps into vendor directory
+      - name: Install Python Base Dependencies
         run: |
-          pip install \
-            fastapi "uvicorn[standard]" sqlalchemy pydantic \
-            --prefer-binary \
-            --target backend/vendor
+          pip install fastapi "uvicorn[standard]" sqlalchemy pydantic pyinstaller
 
-      - name: Install llama-cpp-python into vendor (pre-built wheel only)
+      - name: Install llama-cpp-python (pre-built wheel, no compilation)
         run: |
           pip install llama-cpp-python \
             --prefer-binary \
-            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
-            --target backend/vendor \
-          || echo "::warning::llama-cpp-python pre-built wheel not found, AI disabled at runtime"
-
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+          
+      - name: Build Backend (PyInstaller)
+        run: |
+          cd backend
+          pyinstaller \
+            --name backend_server \
+            --onedir \
+            --collect-all uvicorn \
+            --collect-all fastapi \
+            --collect-all pydantic \
+            --collect-all llama_cpp \
+            --copy-metadata fastapi \
+            --hidden-import uvicorn.logging \
+            --hidden-import uvicorn.loops \
+            --hidden-import uvicorn.loops.auto \
+            --hidden-import uvicorn.protocols \
+            --hidden-import uvicorn.protocols.http \
+            --hidden-import uvicorn.protocols.http.auto \
+            --hidden-import uvicorn.protocols.http.h11_impl \
+            --hidden-import uvicorn.protocols.websockets \
+            --hidden-import uvicorn.protocols.websockets.auto \
+            --hidden-import uvicorn.lifespan \
+            --hidden-import uvicorn.lifespan.on \
+            --hidden-import uvicorn.lifespan.off \
+            main.py
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

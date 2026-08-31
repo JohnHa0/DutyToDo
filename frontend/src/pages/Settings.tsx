@@ -252,11 +252,19 @@ const Settings: React.FC = () => {
     setLogVisible(true);
     setLogLoading(true);
     try {
-      const data = await fetchLogs(300);
-      setLogContent(data.logs || '暂无日志');
-      setLogPath(data.path || '');
+      // @ts-ignore
+      if (window.electronAPI && window.electronAPI.getLocalLogs) {
+        // @ts-ignore
+        const logs = await window.electronAPI.getLocalLogs();
+        setLogContent(logs);
+        setLogPath('~/.dutytodo/logs/');
+      } else {
+        const data = await fetchLogs(300);
+        setLogContent(data.logs || '暂无日志');
+        setLogPath(data.path || '');
+      }
     } catch (e) {
-      setLogContent('无法获取日志，后端可能未运行。\n请检查：~/.dutytodo/logs/backend.log');
+      setLogContent('无法获取日志，后端可能未运行。\n请检查：~/.dutytodo/logs/backend.log\n' + e);
     } finally {
       setLogLoading(false);
     }
