@@ -26,10 +26,15 @@ jobs:
         with:
           python-version: '3.11'
           
-      - name: Install Python Dependencies & PyInstaller
+      - name: Install Python Base Dependencies
         run: |
-          cd backend
-          pip install -r requirements.txt
+          pip install fastapi "uvicorn[standard]" sqlalchemy pydantic pyinstaller
+
+      - name: Install llama-cpp-python (pre-built wheel, no compilation)
+        run: |
+          pip install llama-cpp-python \
+            --prefer-binary \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
           
       - name: Build Backend (PyInstaller)
         run: |
@@ -40,6 +45,7 @@ jobs:
             --collect-all uvicorn \
             --collect-all fastapi \
             --collect-all pydantic \
+            --collect-all llama_cpp \
             --copy-metadata fastapi \
             --hidden-import uvicorn.logging \
             --hidden-import uvicorn.loops \
