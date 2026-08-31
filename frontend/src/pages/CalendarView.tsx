@@ -43,7 +43,7 @@ const CalendarView: React.FC = () => {
   }, []);
 
   return (
-    <Card bordered={false} className="shadow-sm calendar-wrapper">
+    <Card bordered={false} className="glass-card calendar-wrapper">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin]}
         initialView="dayGridMonth"

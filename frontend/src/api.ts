@@ -1,7 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { open, save } from '@tauri-apps/api/dialog';
-import { readBinaryFile } from '@tauri-apps/api/fs';
-
 export interface Notification {
   id?: number;
   title: string;
@@ -22,12 +20,12 @@ export interface Notification {
   updated_at?: string;
 }
 
-export const fetchNotifications = async (params?: any) => {
-  return await invoke('get_notifications', { params });
+export const fetchNotifications = async (params?: any): Promise<Notification[]> => {
+  return await invoke<Notification[]>('get_notifications', { params });
 };
 
-export const createNotification = async (data: Notification) => {
-  return await invoke('create_notification', { data });
+export const createNotification = async (data: Notification): Promise<Notification> => {
+  return await invoke<Notification>('create_notification', { data });
 };
 
 export const updateNotification = async (id: number, data: Partial<Notification>) => {
@@ -65,7 +63,7 @@ export const saveConfig = async (key: string, value: any) => {
   return await invoke('set_config', { key, value: valueStr });
 };
 
-export const extractNLP = async (text: string) => {
+export const extractNLP = async (text: string): Promise<any> => {
   return await invoke('extract_nlp', { text });
 };
 
@@ -100,4 +98,15 @@ export const fetchLogs = async (lines = 300) => {
 
 export const openFolder = async () => {
   await invoke('open_attachment_folder');
+};
+
+export const triggerSelectFile = async () => {
+  const selected = await open({
+    multiple: false,
+    filters: [{ name: 'Model Files', extensions: ['gguf', 'bin'] }]
+  });
+  if (selected && !Array.isArray(selected)) {
+    return selected as string;
+  }
+  return null;
 };

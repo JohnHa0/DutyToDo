@@ -109,7 +109,7 @@ const StatsView: React.FC = () => {
         </div>
       </div>
 
-      <Card title="年度通知热力图 (Activity Heatmap)" bordered={false} className="shadow-sm" style={{ marginBottom: 24 }}>
+      <Card title="年度通知热力图 (Activity Heatmap)" bordered={false} className="glass-card" style={{ marginBottom: 24 }}>
         <CalendarHeatmap
           startDate={dayjs().subtract(1, 'year').toDate()}
           endDate={dayjs().toDate()}
@@ -132,7 +132,7 @@ const StatsView: React.FC = () => {
 
       <Row gutter={24}>
         <Col span={12}>
-          <Card title="各部门发文量统计" bordered={false} className="shadow-sm">
+          <Card title="各部门发文量统计" bordered={false} className="glass-card">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={deptChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -146,7 +146,7 @@ const StatsView: React.FC = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="办理状态占比" bordered={false} className="shadow-sm">
+          <Card title="办理状态占比" bordered={false} className="glass-card">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie

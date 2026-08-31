@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Layout, Menu, Typography, Badge } from 'antd';
 import {
   DashboardOutlined,
@@ -9,6 +9,8 @@ import {
   BarChartOutlined,
   SettingOutlined
 } from '@ant-design/icons';
+import { appWindow } from '@tauri-apps/api/window';
+import { AnimatePresence, motion } from 'framer-motion';
 import Dashboard from './pages/Dashboard';
 import EntryForm from './pages/EntryForm';
 import NotificationList from './pages/NotificationList';
@@ -19,47 +21,63 @@ import Settings from './pages/Settings';
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
 
-// Detect if running inside Electron
-const isElectron = !!(window as any).electronAPI?.isElectron;
-
-// Custom window controls for frameless Electron window
+// Custom window controls for frameless window
 const WindowControls: React.FC = () => {
   const [hovered, setHovered] = React.useState<string | null>(null);
-  if (!isElectron) return null;
 
-  const api = (window as any).electronAPI;
   const btnBase: React.CSSProperties = {
     width: 14, height: 14, borderRadius: '50%', border: 'none',
     cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
     justifyContent: 'center', fontSize: 9, fontWeight: 'bold',
     color: 'transparent', transition: 'all 0.15s ease',
-    WebkitAppRegion: 'no-drag',
-  } as any;
+  };
 
   return (
     <div
-      style={{ display: 'flex', gap: 8, alignItems: 'center', WebkitAppRegion: 'no-drag' } as any}
+      style={{ display: 'flex', gap: 8, alignItems: 'center' }}
       onMouseLeave={() => setHovered(null)}
     >
       <button
         title="关闭"
         style={{ ...btnBase, background: '#ff5f57', color: hovered === 'close' ? '#7a0000' : 'transparent' }}
         onMouseEnter={() => setHovered('close')}
-        onClick={() => api.closeWindow()}
+        onClick={() => appWindow.close()}
       >✕</button>
       <button
         title="最小化"
         style={{ ...btnBase, background: '#febc2e', color: hovered === 'min' ? '#5a3a00' : 'transparent' }}
         onMouseEnter={() => setHovered('min')}
-        onClick={() => api.minimizeWindow()}
+        onClick={() => appWindow.minimize()}
       >–</button>
       <button
         title="最大化"
         style={{ ...btnBase, background: '#28c840', color: hovered === 'max' ? '#005a00' : 'transparent' }}
         onMouseEnter={() => setHovered('max')}
-        onClick={() => api.maximizeWindow()}
+        onClick={() => appWindow.toggleMaximize()}
       >+</button>
     </div>
+  );
+};
+
+const pageVariants = {
+  initial: { opacity: 0, y: 15 },
+  in: { opacity: 1, y: 0 },
+  out: { opacity: 0, y: -15 }
+};
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<motion.div initial="initial" animate="in" exit="out" variants={pageVariants} transition={{ duration: 0.3 }}><Dashboard /></motion.div>} />
+        <Route path="/entry" element={<motion.div initial="initial" animate="in" exit="out" variants={pageVariants} transition={{ duration: 0.3 }}><EntryForm /></motion.div>} />
+        <Route path="/list" element={<motion.div initial="initial" animate="in" exit="out" variants={pageVariants} transition={{ duration: 0.3 }}><NotificationList /></motion.div>} />
+        <Route path="/calendar" element={<motion.div initial="initial" animate="in" exit="out" variants={pageVariants} transition={{ duration: 0.3 }}><CalendarView /></motion.div>} />
+        <Route path="/stats" element={<motion.div initial="initial" animate="in" exit="out" variants={pageVariants} transition={{ duration: 0.3 }}><StatsView /></motion.div>} />
+        <Route path="/settings" element={<motion.div initial="initial" animate="in" exit="out" variants={pageVariants} transition={{ duration: 0.3 }}><Settings /></motion.div>} />
+      </Routes>
+    </AnimatePresence>
   );
 };
 
@@ -68,21 +86,21 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <Layout style={{ minHeight: '100vh' }}>
+      <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
         <Sider
           collapsible
           collapsed={collapsed}
           onCollapse={(value) => setCollapsed(value)}
           breakpoint="lg"
           collapsedWidth="80"
-          style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}
+          style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'rgba(0, 21, 41, 0.85)', backdropFilter: 'blur(10px)' }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>
+            <div data-tauri-drag-region style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>
               {collapsed ? 'Duty' : '值班助手 DutyToDo'}
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
-              <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline">
+              <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" style={{ background: 'transparent' }}>
                 <Menu.Item key="1" icon={<DashboardOutlined />}>
                   <Link to="/">今日概览</Link>
                 </Menu.Item>
@@ -104,14 +122,14 @@ const App: React.FC = () => {
               </Menu>
             </div>
             <div style={{ padding: '16px 8px', color: 'rgba(255, 255, 255, 0.45)', textAlign: 'center', fontSize: '12px', flexShrink: 0, whiteSpace: 'pre-line', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              {collapsed ? 'v1.1' : `值班助手 v1.1.0\n系统组© ${new Date().getFullYear()}`}
+              {collapsed ? 'v2.0' : `值班助手 v2.0.0\n系统组© ${new Date().getFullYear()}`}
             </div>
           </div>
         </Sider>
-        <Layout className="site-layout">
-          <Header style={{ padding: '0 16px 0 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', WebkitAppRegion: 'drag' } as any}>
-            <Title level={4} style={{ margin: 0, WebkitAppRegion: 'no-drag' } as any}>值班通知智能流转系统</Title>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, WebkitAppRegion: 'no-drag' } as any}>
+        <Layout className="site-layout" style={{ background: 'transparent' }}>
+          <Header data-tauri-drag-region style={{ padding: '0 16px 0 24px', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.05)' } as any}>
+            <Title level={4} style={{ margin: 0 }}>值班通知智能流转系统</Title>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <WindowControls />
               <Badge count={0} offset={[10, 0]}>
                 <div style={{ width: 32, height: 32, background: '#e6f7ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #91d5ff' }}>
@@ -120,17 +138,9 @@ const App: React.FC = () => {
               </Badge>
             </div>
           </Header>
-          <Content style={{ margin: '16px 16px', padding: 24, background: '#fff', borderRadius: 8, overflowY: 'auto' }}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/entry" element={<EntryForm />} />
-              <Route path="/list" element={<NotificationList />} />
-              <Route path="/calendar" element={<CalendarView />} />
-              <Route path="/stats" element={<StatsView />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
+          <Content style={{ margin: '16px 16px', padding: 24, background: 'rgba(255, 255, 255, 0.4)', borderRadius: 12, overflowY: 'auto', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+            <AnimatedRoutes />
           </Content>
-
         </Layout>
       </Layout>
     </Router>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, Row, Col, Select, DatePicker, message, Upload, Switch } from 'antd';
+import { Form, Input, Button, Card, Row, Col, Select, DatePicker, message, Upload } from 'antd';
 import { UploadOutlined, RobotOutlined } from '@ant-design/icons';
 import { sendNotification, isPermissionGranted, requestPermission } from '@tauri-apps/api/notification';
 import dayjs from 'dayjs';
@@ -108,7 +108,7 @@ const EntryForm: React.FC = () => {
     <div>
       <Row gutter={24}>
         <Col span={8}>
-          <Card title="1. 粘贴上级通知" bordered={false} className="shadow-sm">
+          <Card title="1. 粘贴上级通知" bordered={false} className="glass-card">
             <TextArea 
               rows={12} 
               placeholder="在此粘贴领导微信群或协同办公系统转发的通知原文..." 
@@ -128,7 +128,7 @@ const EntryForm: React.FC = () => {
           </Card>
         </Col>
         <Col span={16}>
-          <Card title="2. 信息核对与完善" bordered={false} className="shadow-sm">
+          <Card title="2. 信息核对与完善" bordered={false} className="glass-card">
             <Form 
               form={form} 
               layout="vertical" 

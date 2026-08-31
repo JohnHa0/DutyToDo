@@ -1,4 +1,4 @@
-name: Build and Release DEB (AMD64 & ARM64)
+name: Build and Release (Tauri)
 
 on:
   push:
@@ -10,57 +10,32 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  build-linux:
+    name: Build Linux DEB
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
-        # Use older ubuntu for AMD64 to ensure broader glibc compatibility (e.g. for Kylin OS)
-        os: [ubuntu-20.04, ubuntu-22.04-arm]
-    
+        arch: [amd64, arm64]
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      # Setting up QEMU and Docker for arm64 if needed, but Tauri Action can handle compilation if rust target is added.
+      # For older GLIBC compatibility on arm64, we might use a docker container or cross-compile. 
+      # Since Github Actions doesn't natively support ubuntu-20.04 arm64 runners out of the box without self-hosted, 
+      # a simple cross-compilation setup is preferred.
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          python-version: '3.11'
-          
-      - name: Install Python Base Dependencies
-        run: |
-          pip install fastapi "uvicorn[standard]" sqlalchemy pydantic pyinstaller
+          targets: ${{ matrix.arch == 'arm64' && 'aarch64-unknown-linux-gnu' || 'x86_64-unknown-linux-gnu' }}
 
-      - name: Install llama-cpp-python (pre-built wheel, no compilation)
+      - name: Install System Dependencies (Linux)
         run: |
-          pip install llama-cpp-python \
-            --prefer-binary \
-            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-          
-      - name: Build Backend (PyInstaller)
-        run: |
-          cd backend
-          pyinstaller \
-            --name backend_server \
-            --onedir \
-            --collect-all uvicorn \
-            --collect-all fastapi \
-            --collect-all pydantic \
-            --collect-all llama_cpp \
-            --copy-metadata fastapi \
-            --hidden-import uvicorn.logging \
-            --hidden-import uvicorn.loops \
-            --hidden-import uvicorn.loops.auto \
-            --hidden-import uvicorn.protocols \
-            --hidden-import uvicorn.protocols.http \
-            --hidden-import uvicorn.protocols.http.auto \
-            --hidden-import uvicorn.protocols.http.h11_impl \
-            --hidden-import uvicorn.protocols.websockets \
-            --hidden-import uvicorn.protocols.websockets.auto \
-            --hidden-import uvicorn.lifespan \
-            --hidden-import uvicorn.lifespan.on \
-            --hidden-import uvicorn.lifespan.off \
-            main.py
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -71,25 +46,42 @@ jobs:
           cd frontend
           npm install
           
-      - name: Build Frontend and DEB (Electron Builder)
-        env:
-          DEBUG: electron-builder
-        run: |
-          cd frontend
-          npm run build
-          chmod -R 755 ../backend/dist/backend_server
-          npx electron-builder --linux deb --publish never
-          
-      - name: Upload DEB Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: DutyToDo-Linux-DEB-${{ matrix.os }}
-          path: frontend/dist-electron/*.deb
-          
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: frontend/dist-electron/*.deb
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: frontend
+          args: ${{ matrix.arch == 'arm64' && '--target aarch64-unknown-linux-gnu' || '' }}
+          releaseId: ${{ github.ref_name }}
+
+  build-macos:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build Tauri App (Universal)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: frontend
+          args: --target universal-apple-darwin
+          releaseId: ${{ github.ref_name }}

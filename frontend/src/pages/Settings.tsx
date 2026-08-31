@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Select, Tabs, Popconfirm, Modal, Upload } from 'antd';
+import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Select, Tabs, Popconfirm, Modal } from 'antd';
 import { FolderOpenOutlined, DownloadOutlined, DeleteOutlined, DatabaseOutlined, SettingOutlined, AppstoreOutlined, UploadOutlined, FileTextOutlined, ReloadOutlined } from '@ant-design/icons';
 import { fetchConfig, saveConfig, triggerSelectFile, exportDatabase, clearDatabase, openFolder, importDatabase, fetchLogs } from '../api';
 
@@ -126,7 +126,7 @@ const Settings: React.FC = () => {
   };
 
   const renderBasicSettings = () => (
-    <Card bordered={false} className="shadow-sm">
+    <Card bordered={false} className="glass-card">
       <Form form={form} layout="vertical" onFinish={handleSaveBasic}>
         <Row gutter={24}>
           <Col span={12}>
@@ -166,7 +166,7 @@ const Settings: React.FC = () => {
   const renderDictionary = () => (
     <Row gutter={[24, 24]}>
       <Col xs={24} lg={8}>
-        <Card title="发文单位/部门" style={{ height: '100%' }} bordered={false} className="shadow-sm">
+        <Card title="发文单位/部门" style={{ height: '100%' }} bordered={false} className="glass-card">
           <div style={{ marginBottom: 16 }}>
             {departments.map(dept => (
               <Tag key={dept} closable onClose={() => handleRemoveDept(dept)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
@@ -188,7 +188,7 @@ const Settings: React.FC = () => {
       </Col>
 
       <Col xs={24} lg={8}>
-        <Card title="业务标签 (Tags)" style={{ height: '100%' }} bordered={false} className="shadow-sm">
+        <Card title="业务标签 (Tags)" style={{ height: '100%' }} bordered={false} className="glass-card">
           <div style={{ marginBottom: 16 }}>
             {tags.map(tag => (
               <Tag key={tag.name} color={tag.color} closable onClose={() => handleRemoveTag(tag.name)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
@@ -212,7 +212,7 @@ const Settings: React.FC = () => {
       </Col>
 
       <Col xs={24} lg={8}>
-        <Card title="流转领导 (Leaders)" style={{ height: '100%' }} bordered={false} className="shadow-sm">
+        <Card title="流转领导 (Leaders)" style={{ height: '100%' }} bordered={false} className="glass-card">
           <div style={{ marginBottom: 16 }}>
             {leaders.map(leader => (
               <Tag key={leader} closable onClose={() => handleRemoveLeader(leader)} style={{ padding: '4px 12px', fontSize: 14, marginBottom: 8 }}>
@@ -267,7 +267,7 @@ const Settings: React.FC = () => {
     <>
       <Row gutter={[24, 24]}>
         <Col span={12}>
-          <Card title="数据导出备份" bordered={false} className="shadow-sm">
+          <Card title="数据导出备份" bordered={false} className="glass-card">
             <p style={{ color: '#666', marginBottom: 20 }}>
               一键下载 SQLite 数据库文件 (duty_todo.db)，建议您定期备份系统数据。
             </p>
@@ -277,7 +277,7 @@ const Settings: React.FC = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="数据导入恢复" bordered={false} className="shadow-sm">
+          <Card title="数据导入恢复" bordered={false} className="glass-card">
             <p style={{ color: '#666', marginBottom: 20 }}>
               上传备份的 .db 文件以恢复数据。导入前会自动创建当前数据快照备份。
             </p>
@@ -285,7 +285,7 @@ const Settings: React.FC = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="附件存储管理" bordered={false} className="shadow-sm">
+          <Card title="附件存储管理" bordered={false} className="glass-card">
             <p style={{ color: '#666', marginBottom: 20 }}>
               打开系统本地附件存储目录。
             </p>
@@ -295,7 +295,7 @@ const Settings: React.FC = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="系统日志" bordered={false} className="shadow-sm">
+          <Card title="系统日志" bordered={false} className="glass-card">
             <p style={{ color: '#666', marginBottom: 20 }}>
               查看后端运行日志，可用于排查后端无法加载的问题。
             </p>
@@ -305,7 +305,7 @@ const Settings: React.FC = () => {
           </Card>
         </Col>
         <Col span={24}>
-          <Card title="危险操作 (Danger Zone)" bordered={false} className="shadow-sm" style={{ borderLeft: '4px solid #ff4d4f' }}>
+          <Card title="危险操作 (Danger Zone)" bordered={false} className="glass-card" style={{ borderLeft: '4px solid #ff4d4f' }}>
             <p style={{ color: '#ff4d4f', marginBottom: 20 }}>
               清空所有台账记录（字典和配置会保留）。此操作不可逆转，请在操作前确保已导出备份数据！
             </p>
