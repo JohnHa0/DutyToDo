@@ -40,7 +40,9 @@ function startBackend() {
   if (!app.isPackaged) return Promise.resolve();
   
   return new Promise((resolve, reject) => {
-    const backendPath = path.join(process.resourcesPath, 'backend_server');
+    // --onedir output: resources/backend_server/backend_server (Linux/Mac)
+    const exeName = process.platform === 'win32' ? 'backend_server.exe' : 'backend_server';
+    const backendPath = path.join(process.resourcesPath, 'backend_server', exeName);
     if (!fs.existsSync(backendPath)) {
       return reject(new Error('Backend executable not found at: ' + backendPath));
     }

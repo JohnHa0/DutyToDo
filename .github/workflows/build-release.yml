@@ -36,11 +36,10 @@ jobs:
           cd backend
           pyinstaller \
             --name backend_server \
-            --onefile \
+            --onedir \
             --collect-all uvicorn \
             --collect-all fastapi \
             --collect-all pydantic \
-            --collect-all llama_cpp \
             --copy-metadata fastapi \
             --hidden-import uvicorn.logging \
             --hidden-import uvicorn.loops \
