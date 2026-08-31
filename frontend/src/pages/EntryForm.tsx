@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, Row, Col, Select, DatePicker, message, Upload } from 'antd';
+import { Form, Input, Button, Card, Row, Col, Select, DatePicker, message, Upload, Switch } from 'antd';
 import { UploadOutlined, RobotOutlined } from '@ant-design/icons';
+import { sendNotification, isPermissionGranted, requestPermission } from '@tauri-apps/api/notification';
 import dayjs from 'dayjs';
 import { extractNLP, createNotification, fetchConfig } from '../api';
 import type { Notification } from '../api';
@@ -83,8 +84,15 @@ const EntryForm: React.FC = () => {
       await createNotification(payload);
       message.success('通知记录保存成功！');
       
-      if (values.create_reminder && window.electronAPI) {
-          window.electronAPI.showNotification('新待办提醒已创建', `事项: ${values.title}`);
+      if (values.create_reminder) {
+          let permissionGranted = await isPermissionGranted();
+          if (!permissionGranted) {
+            const permission = await requestPermission();
+            permissionGranted = permission === 'granted';
+          }
+          if (permissionGranted) {
+            sendNotification({ title: '新待办提醒已创建', body: `事项: ${values.title}` });
+          }
       }
       
       form.resetFields();

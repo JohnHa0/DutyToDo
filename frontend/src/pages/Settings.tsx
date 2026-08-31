@@ -235,34 +235,27 @@ const Settings: React.FC = () => {
     </Row>
   );
 
-  const handleImportDB = async (file: File) => {
+  const handleImportDB = async () => {
     setImporting(true);
     try {
-      const result = await importDatabase(file);
-      message.success(result.message || '导入成功');
+      const result: any = await importDatabase();
+      message.success(result?.message || '导入成功');
     } catch (e: any) {
-      message.error(e?.response?.data?.detail || '导入失败');
+      if (e.message !== "取消选择") {
+        message.error(e?.message || '导入失败');
+      }
     } finally {
       setImporting(false);
     }
-    return false;
   };
 
   const handleViewLogs = async () => {
     setLogVisible(true);
     setLogLoading(true);
     try {
-      // @ts-ignore
-      if (window.electronAPI && window.electronAPI.getLocalLogs) {
-        // @ts-ignore
-        const logs = await window.electronAPI.getLocalLogs();
-        setLogContent(logs);
-        setLogPath('~/.dutytodo/logs/');
-      } else {
-        const data = await fetchLogs(300);
-        setLogContent(data.logs || '暂无日志');
-        setLogPath(data.path || '');
-      }
+      const data: any = await fetchLogs(300);
+      setLogContent(data.logs || '暂无日志');
+      setLogPath(data.path || '');
     } catch (e) {
       setLogContent('无法获取日志，后端可能未运行。\n请检查：~/.dutytodo/logs/backend.log\n' + e);
     } finally {
@@ -288,13 +281,7 @@ const Settings: React.FC = () => {
             <p style={{ color: '#666', marginBottom: 20 }}>
               上传备份的 .db 文件以恢复数据。导入前会自动创建当前数据快照备份。
             </p>
-            <Upload
-              accept=".db"
-              showUploadList={false}
-              beforeUpload={(file) => { handleImportDB(file); return false; }}
-            >
-              <Button icon={<UploadOutlined />} loading={importing}>导入数据库 (.db)</Button>
-            </Upload>
+            <Button icon={<UploadOutlined />} loading={importing} onClick={handleImportDB}>导入数据库 (.db)</Button>
           </Card>
         </Col>
         <Col span={12}>

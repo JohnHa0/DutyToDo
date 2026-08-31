@@ -1,13 +1,6 @@
-import axios from 'axios';
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
-
-export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+import { invoke } from '@tauri-apps/api/tauri';
+import { open, save } from '@tauri-apps/api/dialog';
+import { readBinaryFile } from '@tauri-apps/api/fs';
 
 export interface Notification {
   id?: number;
@@ -30,23 +23,19 @@ export interface Notification {
 }
 
 export const fetchNotifications = async (params?: any) => {
-  const response = await apiClient.get('/notifications/', { params });
-  return response.data;
+  return await invoke('get_notifications', { params });
 };
 
 export const createNotification = async (data: Notification) => {
-  const response = await apiClient.post('/notifications/', data);
-  return response.data;
+  return await invoke('create_notification', { data });
 };
 
 export const updateNotification = async (id: number, data: Partial<Notification>) => {
-  const response = await apiClient.put(`/notifications/${id}`, data);
-  return response.data;
+  return await invoke('update_notification', { id, data });
 };
 
 export const deleteNotification = async (id: number) => {
-  const response = await apiClient.delete(`/notifications/${id}`);
-  return response.data;
+  return await invoke('delete_notification', { id });
 };
 
 // System Config APIs
@@ -57,8 +46,7 @@ export interface SystemConfig {
 
 export const fetchConfig = async (key: string) => {
   try {
-    const response = await apiClient.get(`/config/${key}`);
-    const val = response.data.value;
+    const val: string = await invoke('get_config', { key });
     if (typeof val === 'string') {
       try {
         return JSON.parse(val);
@@ -73,44 +61,43 @@ export const fetchConfig = async (key: string) => {
 };
 
 export const saveConfig = async (key: string, value: any) => {
-  const response = await apiClient.post('/config/', { key, value });
-  return response.data.value;
-};
-
-export const triggerSelectFile = async () => {
-  const response = await apiClient.get('/config/select_file');
-  return response.data.path;
+  let valueStr = typeof value === 'string' ? value : JSON.stringify(value);
+  return await invoke('set_config', { key, value: valueStr });
 };
 
 export const extractNLP = async (text: string) => {
-  const response = await apiClient.post('/extract/', { text });
-  return response.data;
+  return await invoke('extract_nlp', { text });
 };
 
-
 export const exportDatabase = async () => {
-  window.open(`${API_BASE_URL}/db/export`, '_blank');
+  const savePath = await save({
+    filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+    defaultPath: 'duty_todo_backup.db'
+  });
+  if (savePath) {
+    await invoke('export_database', { path: savePath });
+  }
 };
 
 export const clearDatabase = async () => {
-  const response = await apiClient.post('/db/clear');
-  return response.data;
+  return await invoke('clear_database');
 };
 
-export const importDatabase = async (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await apiClient.post('/db/import', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+export const importDatabase = async () => {
+  const selected = await open({
+    filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+    multiple: false,
   });
-  return response.data;
+  if (selected && !Array.isArray(selected)) {
+    return await invoke('import_database', { path: selected });
+  }
+  throw new Error("取消选择");
 };
 
 export const fetchLogs = async (lines = 300) => {
-  const response = await apiClient.get('/logs', { params: { lines } });
-  return response.data;
+  return await invoke('get_logs', { lines });
 };
 
 export const openFolder = async () => {
-  await apiClient.get('/config/open_folder');
+  await invoke('open_attachment_folder');
 };

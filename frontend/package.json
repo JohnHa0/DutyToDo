@@ -3,13 +3,12 @@
   "private": true,
   "version": "1.0.1",
   "type": "module",
-  "main": "main.cjs",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173/ electron .\"",
+    "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "electron:build": "vite build && electron-builder"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.2",
@@ -17,9 +16,11 @@
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@tauri-apps/api": "^1.6.0",
     "antd": "^6.6.2",
     "axios": "^1.20.0",
     "dayjs": "^1.11.23",
+    "framer-motion": "^11.0.0",
     "react": "^19.2.8",
     "react-calendar-heatmap": "^1.10.0",
     "react-dom": "^19.2.8",
@@ -29,6 +30,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^1.6.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-calendar-heatmap": "^1.9.0",
@@ -38,28 +40,6 @@
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
   },
-  "build": {
-    "appId": "com.dutytodo.app",
-    "productName": "值班助手",
-    "directories": {
-      "output": "dist-electron"
-    },
-    "linux": {
-      "target": [
-        "deb"
-      ],
-      "category": "Office",
-      "icon": "build/icons"
-    },
-    "extraResources": [
-      {
-        "from": "../backend/dist/backend_server",
-        "to": "backend_server"
-      }
-    ],
-    "icon": "build/icon.png"
-  },
   "author": "DutyToDo Team <team@dutytodo.local>",
-  "description": "值班通知智能流转系统",
-  "homepage": "https://github.com/DutyToDo"
+  "description": "值班通知智能流转系统"
 }
