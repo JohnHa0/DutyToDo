@@ -26,7 +26,6 @@ const sankeyOptions = [
 
 const StatsView: React.FC = () => {
   const [data, setData] = useState<Notification[]>([]);
-  const [heatmapData, setHeatmapData] = useState<any[]>([]);
 
   // Custom date range
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([dayjs().subtract(1, 'month'), dayjs()]);

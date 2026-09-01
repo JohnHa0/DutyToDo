@@ -8,7 +8,6 @@ import './Dashboard.css';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 
 const Dashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -192,7 +191,7 @@ const Dashboard: React.FC = () => {
   const handleStatusChange = async (e: React.MouseEvent, item: Notification, newStatus: string) => {
     e.stopPropagation();
     try {
-      const payload = { ...item, status: newStatus };
+      const payload = { ...item, status: newStatus as "待办理" | "正在办理" | "已办结" };
       await updateNotification(item.id!, payload);
       message.success('状态已更新为: ' + newStatus);
       loadData();

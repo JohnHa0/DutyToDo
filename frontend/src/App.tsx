@@ -19,7 +19,6 @@ import StatsView from './pages/StatsView';
 import Settings from './pages/Settings';
 import NotificationTracker from './components/NotificationTracker';
 import { fetchConfig } from './api';
-import { convertFileSrc } from '@tauri-apps/api/tauri';
 
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
@@ -100,7 +99,7 @@ const App: React.FC = () => {
       } else {
         try {
           const bytes = await readBinaryFile(img);
-          const blob = new Blob([bytes]);
+          const blob = new Blob([bytes as any]);
           setBgImage(URL.createObjectURL(blob));
         } catch (e) {
           console.error("Failed to load background image:", e);
@@ -132,7 +131,7 @@ const App: React.FC = () => {
         } else {
           try {
             const bytes = await readBinaryFile(detail.bg_image);
-            const blob = new Blob([bytes]);
+            const blob = new Blob([bytes as any]);
             setBgImage(URL.createObjectURL(blob));
           } catch(e) {}
         }
