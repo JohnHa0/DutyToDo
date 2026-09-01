@@ -56,7 +56,7 @@ jobs:
         with:
           projectPath: frontend
           args: --target ${{ matrix.target }}
-          releaseId: ${{ github.ref_name }}
+          tagName: ${{ github.ref_name }}
 
   build-macos:
     name: Build macOS DMG
@@ -87,4 +87,4 @@ jobs:
         with:
           projectPath: frontend
           args: --target universal-apple-darwin
-          releaseId: ${{ github.ref_name }}
+          tagName: ${{ github.ref_name }}
