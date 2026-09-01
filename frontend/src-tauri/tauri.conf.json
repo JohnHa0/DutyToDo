@@ -17,7 +17,12 @@
       "fs": { "all": true },
       "shell": { "all": true },
       "path": { "all": true },
-      "notification": { "all": true }
+      "notification": { "all": true },
+      "window": { "all": true },
+      "protocol": {
+        "asset": true,
+        "assetScope": ["**"]
+      }
     },
     "bundle": {
       "active": true,
@@ -64,7 +69,8 @@
         "height": 600,
         "resizable": true,
         "title": "DutyToDo",
-        "width": 800
+        "width": 800,
+        "fileDropEnabled": false
       }
     ]
   }

@@ -100,6 +100,27 @@ export const openFolder = async () => {
   await invoke('open_attachment_folder');
 };
 
+import { copyFile } from '@tauri-apps/api/fs';
+
+export const uploadFile = async (name: string, data: Uint8Array): Promise<string> => {
+  return await invoke('upload_file', { name, data: Array.from(data) });
+};
+
+export const openFile = async (path: string) => {
+  await invoke('open_file', { path });
+};
+
+export const downloadAttachment = async (sourcePath: string, defaultName: string) => {
+  const targetPath = await save({
+    defaultPath: defaultName
+  });
+  if (targetPath) {
+    await copyFile(sourcePath, targetPath);
+    return true;
+  }
+  return false;
+};
+
 export const triggerSelectFile = async () => {
   const selected = await open({
     multiple: false,

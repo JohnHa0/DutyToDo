@@ -8,10 +8,33 @@ use rusqlite::params;
 #[tauri::command]
 pub fn get_notifications(params: Option<Value>) -> Result<Vec<Notification>, String> {
     let conn = database::init_db().map_err(|e| e.to_string())?;
-    // Implement simple fetch without filter for now
-    let mut stmt = conn.prepare("SELECT id, title, raw_text, received_time, event_time, event_end, sender_dept, contact_person, status, routed_leaders, dept_heads, tags, priority, recorder, handler, attachments, created_at, updated_at FROM notifications ORDER BY id DESC").map_err(|e| e.to_string())?;
+    let mut base_query = "SELECT id, title, raw_text, received_time, event_time, event_end, sender_dept, contact_person, status, routed_leaders, dept_heads, tags, priority, recorder, handler, attachments, created_at, updated_at FROM notifications WHERE 1=1".to_string();
     
-    let iter = stmt.query_map([], |row| {
+    let mut sql_params: Vec<rusqlite::types::Value> = Vec::new();
+    
+    if let Some(p) = params {
+        if let Some(search) = p.get("search").and_then(|v| v.as_str()) {
+            if !search.trim().is_empty() {
+                base_query.push_str(" AND (title LIKE ? OR raw_text LIKE ? OR sender_dept LIKE ?)");
+                let like_str = format!("%{}%", search);
+                sql_params.push(rusqlite::types::Value::Text(like_str.clone()));
+                sql_params.push(rusqlite::types::Value::Text(like_str.clone()));
+                sql_params.push(rusqlite::types::Value::Text(like_str));
+            }
+        }
+        if let Some(status) = p.get("status").and_then(|v| v.as_str()) {
+            if !status.trim().is_empty() {
+                base_query.push_str(" AND status = ?");
+                sql_params.push(rusqlite::types::Value::Text(status.to_string()));
+            }
+        }
+    }
+    
+    base_query.push_str(" ORDER BY id DESC");
+    
+    let mut stmt = conn.prepare(&base_query).map_err(|e| e.to_string())?;
+    
+    let iter = stmt.query_map(rusqlite::params_from_iter(sql_params), |row| {
         Ok(Notification {
             id: row.get(0)?,
             title: row.get(1)?,
@@ -45,10 +68,13 @@ pub fn get_notifications(params: Option<Value>) -> Result<Vec<Notification>, Str
 #[tauri::command]
 pub fn create_notification(data: Notification) -> Result<Notification, String> {
     let conn = database::init_db().map_err(|e| e.to_string())?;
+    
+    let local_received_time = data.received_time.clone().unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+    
     conn.execute(
-        "INSERT INTO notifications (title, raw_text, event_time, event_end, sender_dept, contact_person, status, routed_leaders, dept_heads, tags, priority, recorder, handler, attachments) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        "INSERT INTO notifications (title, raw_text, received_time, event_time, event_end, sender_dept, contact_person, status, routed_leaders, dept_heads, tags, priority, recorder, handler, attachments) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
-            data.title, data.raw_text, data.event_time, data.event_end,
+            data.title, data.raw_text, local_received_time, data.event_time, data.event_end,
             data.sender_dept, data.contact_person, data.status,
             data.routed_leaders, data.dept_heads, data.tags,
             data.priority, data.recorder, data.handler, data.attachments
@@ -60,9 +86,59 @@ pub fn create_notification(data: Notification) -> Result<Notification, String> {
 #[tauri::command]
 pub fn update_notification(id: i32, data: Notification) -> Result<Notification, String> {
     let conn = database::init_db().map_err(|e| e.to_string())?;
+    
+    // Fetch old attachments to compare
+    let mut stmt = conn.prepare("SELECT attachments FROM notifications WHERE id=?1").map_err(|e| e.to_string())?;
+    let mut rows = stmt.query([id]).map_err(|e| e.to_string())?;
+    let mut old_urls: Vec<String> = Vec::new();
+    if let Some(row) = rows.next().unwrap_or(None) {
+        if let Ok(Some(old_atts)) = row.get::<_, Option<String>>(0) {
+            if let Ok(old_json) = serde_json::from_str::<serde_json::Value>(&old_atts) {
+                if let Some(arr) = old_json.as_array() {
+                    for f in arr {
+                        if let Some(url) = f.get("url").and_then(|u| u.as_str()) {
+                            old_urls.push(url.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Collect new attachments
+    let mut new_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
+    if let Some(ref new_atts) = data.attachments {
+        if let Ok(new_json) = serde_json::from_str::<serde_json::Value>(new_atts) {
+            if let Some(arr) = new_json.as_array() {
+                for f in arr {
+                    if let Some(url) = f.get("url").and_then(|u| u.as_str()) {
+                        new_urls.insert(url.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Delete physical files that are no longer referenced
+    for url in old_urls {
+        if !new_urls.contains(&url) {
+            let _ = std::fs::remove_file(&url); // silently ignore errors (e.g. file already gone)
+        }
+    }
+
     conn.execute(
-        "UPDATE notifications SET title=?1, status=?2, handler=?3, updated_at=CURRENT_TIMESTAMP WHERE id=?4",
-        params![data.title, data.status, data.handler, id],
+        "UPDATE notifications SET 
+            title=?1, raw_text=?2, received_time=?3, event_time=?4, event_end=?5, 
+            sender_dept=?6, contact_person=?7, status=?8, routed_leaders=?9, 
+            dept_heads=?10, tags=?11, priority=?12, handler=?13, attachments=?14, 
+            updated_at=CURRENT_TIMESTAMP 
+         WHERE id=?15",
+        params![
+            data.title, data.raw_text, data.received_time, data.event_time, data.event_end,
+            data.sender_dept, data.contact_person, data.status, data.routed_leaders,
+            data.dept_heads, data.tags, data.priority, data.handler, data.attachments,
+            id
+        ],
     ).map_err(|e| e.to_string())?;
     Ok(data)
 }
@@ -70,6 +146,24 @@ pub fn update_notification(id: i32, data: Notification) -> Result<Notification, 
 #[tauri::command]
 pub fn delete_notification(id: i32) -> Result<(), String> {
     let conn = database::init_db().map_err(|e| e.to_string())?;
+    
+    // Fetch and delete all attachments
+    let mut stmt = conn.prepare("SELECT attachments FROM notifications WHERE id=?1").map_err(|e| e.to_string())?;
+    let mut rows = stmt.query([id]).map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().unwrap_or(None) {
+        if let Ok(Some(old_atts)) = row.get::<_, Option<String>>(0) {
+            if let Ok(old_json) = serde_json::from_str::<serde_json::Value>(&old_atts) {
+                if let Some(arr) = old_json.as_array() {
+                    for f in arr {
+                        if let Some(url) = f.get("url").and_then(|u| u.as_str()) {
+                            let _ = std::fs::remove_file(url);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     conn.execute("DELETE FROM notifications WHERE id=?1", params![id]).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -89,17 +183,38 @@ pub fn get_config(key: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn set_config(key: String, value: String) -> Result<String, String> {
+pub fn set_config(key: String, value: String, state: tauri::State<'_, crate::llm::LlmState>) -> Result<String, String> {
     let conn = database::init_db().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO system_config (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = CURRENT_TIMESTAMP",
         [&key, &value],
     ).map_err(|e| e.to_string())?;
+
+    if key == "llm_model_path" {
+        if let Ok(enabled) = get_config("llm_enabled".to_string()) {
+            if enabled == "true" {
+                if let Some(tx) = state.tx.lock().unwrap().as_ref().cloned() {
+                    let (reply_tx, _reply_rx) = tokio::sync::oneshot::channel();
+                    let _ = tx.send(crate::llm::LlmRequest::Reload { model_path: value.clone(), reply: reply_tx });
+                }
+            }
+        }
+    } else if key == "llm_enabled" && value == "true" {
+        if let Ok(path) = get_config("llm_model_path".to_string()) {
+            if std::path::Path::new(&path).exists() {
+                if let Some(tx) = state.tx.lock().unwrap().as_ref().cloned() {
+                    let (reply_tx, _reply_rx) = tokio::sync::oneshot::channel();
+                    let _ = tx.send(crate::llm::LlmRequest::Reload { model_path: path, reply: reply_tx });
+                }
+            }
+        }
+    }
+
     Ok(value)
 }
 
 #[tauri::command]
-pub async fn extract_nlp(text: String) -> Result<Value, String> {
+pub async fn extract_nlp(text: String, state: tauri::State<'_, crate::llm::LlmState>) -> Result<Value, String> {
     use regex::Regex;
     
     let fallback = || {
@@ -127,95 +242,33 @@ pub async fn extract_nlp(text: String) -> Result<Value, String> {
 
     let enabled_str = crate::commands::get_config("llm_enabled".to_string()).unwrap_or_else(|_| "false".to_string());
     if enabled_str != "true" {
-        return Ok(fallback());
+        return Ok(fallback()); // Return fallback silently if not enabled
     }
+
+    let default_prompt = "你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话".to_string();
+    let sys_prompt_base = crate::commands::get_config("llm_system_prompt".to_string()).unwrap_or(default_prompt);
     
-    let model_path = crate::commands::get_config("llm_model_path".to_string()).unwrap_or_default();
-    if !std::path::Path::new(&model_path).exists() {
-        return Ok(fallback());
+    // Inject current date context so LLM can infer relative dates like "本周五"
+    let current_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let sys_prompt = format!("{}\n(注意：当前系统时间为 {}，请以此为基准推算“本周”、“明天”等相对日期。时间必须严格输出为YYYY-MM-DD HH:mm:ss格式)", sys_prompt_base, current_time);
+
+    let tx = {
+        let lock = state.tx.lock().unwrap();
+        lock.as_ref().cloned()
+    };
+
+    if let Some(tx) = tx {
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        if tx.send(crate::llm::LlmRequest::Extract { text, sys_prompt, reply: reply_tx }).is_ok() {
+            match reply_rx.await {
+                Ok(Ok(val)) => return Ok(val),
+                Ok(Err(e)) => return Err(e),
+                Err(_) => return Err("与大模型后台引擎通信失败".to_string()),
+            }
+        }
     }
 
-    let default_prompt = "你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 通知标题\n- event_time: 开始或截止时间 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话".to_string();
-    let sys_prompt = crate::commands::get_config("llm_system_prompt".to_string()).unwrap_or(default_prompt);
-    let text_clone = text.clone();
-
-    let result = tokio::task::spawn_blocking(move || {
-        use llama_cpp_2::llama_backend::LlamaBackend;
-        use llama_cpp_2::model::LlamaModel;
-        use llama_cpp_2::model::params::LlamaModelParams;
-        use llama_cpp_2::context::params::LlamaContextParams;
-        use llama_cpp_2::llama_batch::LlamaBatch;
-        use llama_cpp_2::token::data_array::LlamaTokenDataArray;
-
-        let backend = LlamaBackend::init().map_err(|e| e.to_string())?;
-        let model_params = LlamaModelParams::default();
-        let model = LlamaModel::load_from_file(&backend, &model_path, &model_params)
-            .map_err(|e| e.to_string())?;
-            
-        let ctx_params = LlamaContextParams::default().with_n_ctx(Some(2048.try_into().unwrap()));
-        let mut ctx = model.new_context(&backend, ctx_params)
-            .map_err(|e| e.to_string())?;
-            
-        let prompt_str = format!("{}\n\n通知原文：\n{}", sys_prompt, text_clone);
-        let tokens_list = model.str_to_token(&prompt_str, llama_cpp_2::model::AddBos::Always)
-            .map_err(|e| e.to_string())?;
-
-        let mut batch = LlamaBatch::new(2048, 1);
-        let last_index = (tokens_list.len() - 1) as i32;
-        
-        for (i, token) in (0_i32..).zip(tokens_list.into_iter()) {
-            let is_last = i == last_index;
-            batch.add(token, i, &[0], is_last).map_err(|e| e.to_string())?;
-        }
-
-        ctx.decode(&mut batch).map_err(|e| e.to_string())?;
-
-        let mut n_cur = batch.n_tokens();
-        let mut output_str = String::new();
-
-        while n_cur <= 2048 {
-            let candidates = ctx.candidates_ith(batch.n_tokens() - 1);
-            let mut candidates_p = LlamaTokenDataArray::from_iter(candidates, false);
-            let new_token_id = candidates_p.sample_token_greedy();
-
-            if new_token_id == model.token_eos() {
-                break;
-            }
-
-            let token_bytes = model.token_to_piece_bytes(new_token_id, 128, false, None).unwrap_or_default();
-            output_str.push_str(&String::from_utf8_lossy(&token_bytes));
-
-            batch.clear();
-            batch.add(new_token_id, n_cur, &[0], true).map_err(|e| e.to_string())?;
-            n_cur += 1;
-            
-            if ctx.decode(&mut batch).is_err() {
-                break;
-            }
-        }
-
-        let json_start = output_str.find('{');
-        let json_end = output_str.rfind('}');
-        
-        if let (Some(s), Some(e)) = (json_start, json_end) {
-            if s < e {
-                let json_slice = &output_str[s..=e];
-                if let Ok(v) = serde_json::from_str::<Value>(json_slice) {
-                    return Ok::<Value, String>(v);
-                }
-            }
-        }
-
-        Err("Failed to parse JSON from LLM".to_string())
-    }).await.map_err(|e| e.to_string())?;
-
-    match result {
-        Ok(v) => Ok(v),
-        Err(e) => {
-            tracing::error!("LLM inference failed: {}", e);
-            Ok(fallback())
-        }
-    }
+    Err("大模型引擎未启动或尚未加载完成".to_string())
 }
 
 #[tauri::command]
@@ -275,9 +328,51 @@ pub fn get_logs(lines: i32) -> Result<Value, String> {
 }
 
 #[tauri::command]
+pub fn upload_file(name: String, data: Vec<u8>) -> Result<String, String> {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
+    let month_str = chrono::Local::now().format("%Y-%m").to_string();
+    let attach_dir = home.join(".dutytodo").join("attachments").join(&month_str);
+    
+    fs::create_dir_all(&attach_dir).map_err(|e| e.to_string())?;
+    
+    // Ensure filename uniqueness
+    let file_path = attach_dir.join(&name);
+    let mut final_path = file_path.clone();
+    let mut counter = 1;
+    while final_path.exists() {
+        let stem = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        let ext = file_path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        let new_name = if ext.is_empty() { format!("{}_{}", stem, counter) } else { format!("{}_{}.{}", stem, counter, ext) };
+        final_path = attach_dir.join(new_name);
+        counter += 1;
+    }
+    
+    fs::write(&final_path, data).map_err(|e| e.to_string())?;
+    
+    // Return a URI-like string for local path
+    Ok(final_path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn open_file(path: String) -> Result<(), String> {
+    if !PathBuf::from(&path).exists() {
+        return Err("文件不存在或已被删除".to_string());
+    }
+    
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open").arg(&path).spawn().unwrap();
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("explorer").arg(&path).spawn().unwrap();
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open").arg(&path).spawn().unwrap();
+    
+    Ok(())
+}
+
+#[tauri::command]
 pub fn open_attachment_folder() -> Result<(), String> {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
-    let attach_dir = home.join(".dutytodo").join("data").join("uploads");
+    let attach_dir = home.join(".dutytodo").join("attachments");
     fs::create_dir_all(&attach_dir).map_err(|e| e.to_string())?;
     
     #[cfg(target_os = "macos")]

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Select, Tabs, Popconfirm, Modal } from 'antd';
-import { FolderOpenOutlined, DownloadOutlined, DeleteOutlined, DatabaseOutlined, SettingOutlined, AppstoreOutlined, UploadOutlined, FileTextOutlined, ReloadOutlined } from '@ant-design/icons';
-import { fetchConfig, saveConfig, triggerSelectFile, exportDatabase, clearDatabase, openFolder, importDatabase, fetchLogs } from '../api';
+import { Card, Form, Input, Button, message, Space, Tag, Row, Col, Select, Tabs, Popconfirm, Modal, Upload } from 'antd';
+import { FolderOpenOutlined, DownloadOutlined, DeleteOutlined, DatabaseOutlined, SettingOutlined, AppstoreOutlined, UploadOutlined, FileTextOutlined, ReloadOutlined, PictureOutlined } from '@ant-design/icons';
+import { fetchConfig, saveConfig, triggerSelectFile, exportDatabase, clearDatabase, openFolder, importDatabase, fetchLogs, uploadFile } from '../api';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
+import { Slider } from 'antd';
 
 const COLORS = ['#f50', '#2db7f5', '#87d068', '#108ee9', '#purple', '#volcano', '#magenta'];
 
@@ -46,11 +47,23 @@ const Settings: React.FC = () => {
       const llm_enabled = await fetchConfig('llm_enabled');
       const llm_model_path = await fetchConfig('llm_model_path');
       const llm_system_prompt = await fetchConfig('llm_system_prompt');
+      const reminder_enabled = await fetchConfig('reminder_enabled');
+      const reminder_advance_minutes = await fetchConfig('reminder_advance_minutes');
+      
+      const bg_image = await fetchConfig('bg_image');
+      const bg_opacity = await fetchConfig('bg_opacity');
+      const bg_blur = await fetchConfig('bg_blur');
+
       form.setFieldsValue({
         default_recorder: recorder || '当前值班员',
         llm_enabled: llm_enabled || 'false',
         llm_model_path: llm_model_path || '',
-        llm_system_prompt: llm_system_prompt || '你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 通知标题\n- event_time: 开始或截止时间 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话'
+        reminder_enabled: reminder_enabled || 'true',
+        reminder_advance_minutes: reminder_advance_minutes || '60',
+        bg_image: bg_image || '',
+        bg_opacity: bg_opacity !== null ? parseFloat(bg_opacity) : 0.4,
+        bg_blur: bg_blur !== null ? parseInt(bg_blur) : 10,
+        llm_system_prompt: llm_system_prompt || '你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话'
       });
     };
     loadSettings();
@@ -61,8 +74,24 @@ const Settings: React.FC = () => {
       await saveConfig('default_recorder', values.default_recorder);
       await saveConfig('llm_enabled', values.llm_enabled);
       await saveConfig('llm_model_path', values.llm_model_path);
-      await saveConfig('llm_system_prompt', values.llm_system_prompt);
-      message.success('基础设置保存成功');
+      await saveConfig('reminder_enabled', values.reminder_enabled);
+      await saveConfig('reminder_advance_minutes', values.reminder_advance_minutes);
+      await saveConfig('bg_image', values.bg_image);
+      await saveConfig('bg_opacity', values.bg_opacity.toString());
+      await saveConfig('bg_blur', values.bg_blur.toString());
+      
+      // Dispatch custom event to notify App.tsx immediately without refresh
+      window.dispatchEvent(new Event('theme_updated'));
+
+      const finalPrompt = values.llm_system_prompt?.trim() || '你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话';
+      await saveConfig('llm_system_prompt', finalPrompt);
+
+      if (!values.llm_system_prompt?.trim()) {
+        form.setFieldsValue({ llm_system_prompt: finalPrompt });
+        message.success('基础设置保存成功 (已自动为您恢复默认系统提示词)');
+      } else {
+        message.success('基础设置保存成功');
+      }
     } catch (e) {
       message.error('保存失败');
     }
@@ -145,6 +174,24 @@ const Settings: React.FC = () => {
               </Select>
             </Form.Item>
           </Col>
+          <Col span={12}>
+            <Form.Item name="reminder_enabled" label="启用后台智能临期提醒">
+              <Select>
+                <Option value="true">开启 (推荐)</Option>
+                <Option value="false">关闭</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="reminder_advance_minutes" label="提前多少时间提醒">
+              <Select>
+                <Option value="15">提前 15 分钟</Option>
+                <Option value="30">提前 30 分钟</Option>
+                <Option value="60">提前 1 小时</Option>
+                <Option value="1440">提前 1 天 (24小时)</Option>
+              </Select>
+            </Form.Item>
+          </Col>
           <Col span={24}>
             <Form.Item label="本地大模型模型路径 (GGUF 格式)">
               <Space.Compact style={{ width: '100%' }}>
@@ -159,12 +206,75 @@ const Settings: React.FC = () => {
             </Form.Item>
           </Col>
           <Col span={24}>
-            <Form.Item name="llm_system_prompt" label="大模型系统提示词 (System Prompt) - 建议不熟悉Prompt的用户保持默认" rules={[{ required: true, message: '系统提示词不能为空' }]}>
-              <Input.TextArea rows={8} placeholder="在此自定义提示词约束模型提取..." />
+            <Form.Item name="llm_system_prompt" label={
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                <span>大模型系统提示词 (System Prompt) - 建议不熟悉Prompt的用户保持默认</span>
+                <Button type="link" size="small" onClick={() => form.setFieldsValue({ llm_system_prompt: '你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话' })}>
+                  恢复默认提示词
+                </Button>
+              </div>
+            }>
+              <Input.TextArea rows={8} placeholder="如果留空并保存，系统将自动使用默认的提示词约束模型提取..." />
             </Form.Item>
           </Col>
           <Col span={24}>
             <Button type="primary" htmlType="submit">保存基本设置</Button>
+          </Col>
+        </Row>
+      </Form>
+    </Card>
+  );
+
+  const handleUploadBg = async (file: File) => {
+    try {
+      const buffer = await file.arrayBuffer();
+      const path = await uploadFile(file.name, new Uint8Array(buffer));
+      form.setFieldsValue({ bg_image: path });
+      message.success('壁纸上传成功，请点击下方保存生效');
+    } catch (e) {
+      message.error('上传失败');
+    }
+    return false; // Prevent default upload behavior
+  };
+
+  const renderThemeSettings = () => (
+    <Card bordered={false} className="glass-card">
+      <Form 
+        form={form} 
+        layout="vertical" 
+        onFinish={handleSaveBasic}
+        onValuesChange={(changedValues, allValues) => {
+          if (changedValues.bg_opacity !== undefined || changedValues.bg_blur !== undefined || changedValues.bg_image !== undefined) {
+             window.dispatchEvent(new CustomEvent('theme_preview', { detail: allValues }));
+          }
+        }}
+      >
+        <Row gutter={24}>
+          <Col span={24}>
+            <Form.Item name="bg_image" label="自定义背景壁纸 (全屏 Cover 铺满)">
+              <Space.Compact style={{ width: '100%' }}>
+                <Form.Item name="bg_image" noStyle>
+                  <Input placeholder="本地壁纸路径或 URL" />
+                </Form.Item>
+                <Upload beforeUpload={handleUploadBg} showUploadList={false}>
+                  <Button icon={<PictureOutlined />}>上传壁纸</Button>
+                </Upload>
+                <Button onClick={() => form.setFieldsValue({ bg_image: '' })}>清除壁纸</Button>
+              </Space.Compact>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="bg_opacity" label="卡片面板透明度 (0.0 完全透明 - 1.0 不透明)">
+              <Slider min={0} max={1} step={0.05} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="bg_blur" label="毛玻璃模糊强度 (0px 无模糊 - 30px 高斯模糊)">
+              <Slider min={0} max={30} step={1} />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Button type="primary" htmlType="submit">保存个性化设置</Button>
           </Col>
         </Row>
       </Form>
@@ -357,7 +467,7 @@ const Settings: React.FC = () => {
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      <h2 style={{ marginBottom: 24 }}>系统设置 (System Config)</h2>
+      <h2 style={{ marginBottom: 24 }}>系统设置</h2>
       <Tabs defaultActiveKey="1" tabPosition="top" size="large">
         <TabPane tab={<span><SettingOutlined />基础配置</span>} key="1">
           {renderBasicSettings()}
@@ -367,6 +477,9 @@ const Settings: React.FC = () => {
         </TabPane>
         <TabPane tab={<span><DatabaseOutlined />数据及维护</span>} key="3">
           {renderDatabaseMgmt()}
+        </TabPane>
+        <TabPane tab={<span><PictureOutlined />个性化主题</span>} key="4">
+          {renderThemeSettings()}
         </TabPane>
       </Tabs>
     </div>

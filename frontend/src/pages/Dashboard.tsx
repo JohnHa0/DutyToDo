@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Timeline, Tag, Typography, Segmented, Drawer, Descriptions, Form, Select, Button, message, Space, Input, DatePicker } from 'antd';
+import { Row, Col, Card, Statistic, Timeline, Tag, Typography, Segmented, Drawer, Descriptions, Form, Select, Button, message, Space, Input, DatePicker, Upload } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, FileTextOutlined } from '@ant-design/icons';
-import { fetchNotifications, updateNotification, fetchConfig } from '../api';
+import { fetchNotifications, updateNotification, fetchConfig, uploadFile, openFile, downloadAttachment } from '../api';
 import type { Notification } from '../api';
 import dayjs from 'dayjs';
 import './Dashboard.css';
@@ -21,6 +21,8 @@ const Dashboard: React.FC = () => {
   const [form] = Form.useForm();
 
   const [presetLeaders, setPresetLeaders] = useState<string[]>([]);
+  const [presetDepartments, setPresetDepartments] = useState<string[]>([]);
+  const [presetTags, setPresetTags] = useState<{name: string; color: string}[]>([]);
 
   const loadData = async () => {
     try {
@@ -28,6 +30,10 @@ const Dashboard: React.FC = () => {
       setNotifications(res);
       const leaders = await fetchConfig('preset_leaders');
       if (leaders) setPresetLeaders(leaders);
+      const depts = await fetchConfig('preset_departments');
+      if (depts) setPresetDepartments(depts);
+      const tags = await fetchConfig('preset_tags');
+      if (tags) setPresetTags(tags);
     } catch (e) {
       console.error(e);
     }
@@ -42,13 +48,13 @@ const Dashboard: React.FC = () => {
 
   let timeFiltered = notifications;
   if (timeRange === 'today') {
-    timeFiltered = notifications.filter(n => dayjs(n.event_time || n.received_time).format('YYYY-MM-DD') === today);
+    timeFiltered = notifications.filter(n => dayjs(n.received_time || n.event_time).format('YYYY-MM-DD') === today);
   } else if (timeRange === 'week') {
     const startOfWeek = dayjs().startOf('week');
-    timeFiltered = notifications.filter(n => dayjs(n.event_time || n.received_time).isAfter(startOfWeek));
+    timeFiltered = notifications.filter(n => dayjs(n.received_time || n.event_time).isAfter(startOfWeek));
   } else if (timeRange === 'month') {
     const startOfMonth = dayjs().startOf('month');
-    timeFiltered = notifications.filter(n => dayjs(n.event_time || n.received_time).isAfter(startOfMonth));
+    timeFiltered = notifications.filter(n => dayjs(n.received_time || n.event_time).isAfter(startOfMonth));
   }
 
   // Status filtering based on timeFiltered
@@ -92,16 +98,67 @@ const Dashboard: React.FC = () => {
     setSelectedItem(item);
     form.setFieldsValue({
       title: item.title,
+      sender_dept: item.sender_dept || '',
+      contact_person: item.contact_person || '',
+      tags: item.tags ? item.tags.split(',') : [],
       raw_text: item.raw_text,
       status: item.status,
       priority: item.priority,
+      received_time: item.received_time ? dayjs(item.received_time) : null,
       event_time: item.event_time ? [
         dayjs(item.event_time),
         item.event_end ? dayjs(item.event_end) : dayjs(item.event_time)
       ] : null,
-      routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : []
+      routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : [],
+      handler: item.handler || '',
+      attachments: item.attachments ? (typeof item.attachments === 'string' ? JSON.parse(item.attachments) : item.attachments).map((f: any) => {
+        let cleanUrl = f.url || '';
+        if (cleanUrl.startsWith('http://127.0.0.1:8000')) {
+          cleanUrl = cleanUrl.replace('http://127.0.0.1:8000', '');
+        }
+        return { ...f, status: 'done', url: cleanUrl };
+      }) : []
     });
     setDrawerVisible(true);
+  };
+
+  const normFile = (e: any) => {
+    if (Array.isArray(e)) return e;
+    return e?.fileList;
+  };
+
+  const customUpload = async (options: any) => {
+    const { file, onSuccess, onError } = options;
+    try {
+      const buffer = await file.arrayBuffer();
+      const path = await uploadFile(file.name, new Uint8Array(buffer));
+      onSuccess({ url: path });
+    } catch (e) {
+      onError(e);
+    }
+  };
+  
+  const handlePreview = async (file: any) => {
+    let path = file.response?.url || file.url;
+    if (path) {
+      try {
+        await openFile(path);
+      } catch (e: any) {
+        message.error(e);
+      }
+    }
+  };
+
+  const handleDownload = async (file: any) => {
+    let path = file.response?.url || file.url;
+    if (path) {
+      try {
+        const saved = await downloadAttachment(path, file.name);
+        if (saved) message.success('附件已另存为');
+      } catch (e: any) {
+        message.error('保存失败: ' + e);
+      }
+    }
   };
 
   const handleDrawerSave = async () => {
@@ -110,9 +167,17 @@ const Dashboard: React.FC = () => {
 
       const payload = {
         ...values,
+        tags: values.tags ? values.tags.join(',') : '',
         event_time: (values.event_time && values.event_time[0]) ? values.event_time[0].format('YYYY-MM-DD HH:mm:ss') : null,
         event_end: (values.event_time && values.event_time[1]) ? values.event_time[1].format('YYYY-MM-DD HH:mm:ss') : null,
-        routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders
+        routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders,
+        attachments: values.attachments ? JSON.stringify(values.attachments.map((f: any) => {
+          let cleanUrl = (f.response?.url || f.url) || '';
+          if (cleanUrl.startsWith('http://127.0.0.1:8000')) {
+            cleanUrl = cleanUrl.replace('http://127.0.0.1:8000', '');
+          }
+          return { uid: f.uid, name: f.name, url: cleanUrl };
+        })) : null
       };
 
       await updateNotification(selectedItem!.id!, payload);
@@ -124,10 +189,11 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleStatusChange = async (e: React.MouseEvent, id: number, newStatus: string) => {
+  const handleStatusChange = async (e: React.MouseEvent, item: Notification, newStatus: string) => {
     e.stopPropagation();
     try {
-      await updateNotification(id, { status: newStatus } as any);
+      const payload = { ...item, status: newStatus };
+      await updateNotification(item.id!, payload);
       message.success('状态已更新为: ' + newStatus);
       loadData();
     } catch (error) {
@@ -155,12 +221,12 @@ const Dashboard: React.FC = () => {
               </Text>
               <Space size="small">
                 {item.status !== '正在办理' && (
-                  <Button size="small" type="dashed" onClick={(e) => handleStatusChange(e, item.id!, '正在办理')}>
+                  <Button size="small" type="dashed" onClick={(e) => handleStatusChange(e, item, '正在办理')}>
                     设为办理中
                   </Button>
                 )}
                 {item.status !== '已办结' && (
-                  <Button size="small" type="primary" ghost onClick={(e) => handleStatusChange(e, item.id!, '已办结')}>
+                  <Button size="small" type="primary" ghost onClick={(e) => handleStatusChange(e, item, '已办结')}>
                     一键办结
                   </Button>
                 )}
@@ -264,6 +330,19 @@ const Dashboard: React.FC = () => {
               <Form.Item name="title" label="通知标题 (可编辑)" rules={[{ required: true }]}>
                 <Input placeholder="输入标题" />
               </Form.Item>
+              <Form.Item name="sender_dept" label="发件部门 (可修改)">
+                <Select mode="tags" placeholder="选择或输入" allowClear>
+                  {presetDepartments.map(dept => <Option key={dept} value={dept}>{dept}</Option>)}
+                </Select>
+              </Form.Item>
+              <Form.Item name="contact_person" label="原联系人及电话 (可修改)">
+                <Input placeholder="提取的联系人信息" />
+              </Form.Item>
+              <Form.Item name="tags" label="业务标签 (可修改)">
+                <Select mode="tags" placeholder="选择或输入标签" allowClear>
+                  {presetTags.map(tag => <Option key={tag.name} value={tag.name}>{tag.name}</Option>)}
+                </Select>
+              </Form.Item>
               <Form.Item name="raw_text" label="原文内容 (可编辑)">
                 <Input.TextArea rows={6} placeholder="输入原文内容" />
               </Form.Item>
@@ -281,8 +360,19 @@ const Dashboard: React.FC = () => {
                   <Option value="紧急">紧急</Option>
                 </Select>
               </Form.Item>
-              <Form.Item name="event_time" label="截止时间/时间段 (可修改)">
-                <RangePicker showTime style={{ width: '100%' }} placeholder={['开始时间', '结束时间']} />
+              <Form.Item name="received_time" label="收件时间 (可修改)">
+                <DatePicker showTime style={{ width: '100%' }} format="YYYY-MM-DD HH:mm:ss" />
+              </Form.Item>
+              <Form.Item name="event_time" label="起止时间段 (可修改)">
+                <DatePicker.RangePicker showTime style={{ width: '100%' }} placeholder={['开始时间', '结束时间']} />
+              </Form.Item>
+              <Form.Item name="handler" label="办理人 (可编辑)">
+                <Input placeholder="输入办理人姓名" />
+              </Form.Item>
+              <Form.Item name="attachments" label="附件管理 (支持拖拽, 点击文件打开本地路径)" valuePropName="fileList" getValueFromEvent={normFile}>
+                <Upload.Dragger multiple customRequest={customUpload} onPreview={handlePreview} onDownload={handleDownload} showUploadList={{ showDownloadIcon: true, showRemoveIcon: true }}>
+                  <p className="ant-upload-text">点击或拖拽文件上传至本地目录</p>
+                </Upload.Dragger>
               </Form.Item>
               <Form.Item name="routed_leaders" label="流转领导记录 (支持多选)">
                 <Select mode="tags" placeholder="选择或输入已流转给哪位领导" allowClear>

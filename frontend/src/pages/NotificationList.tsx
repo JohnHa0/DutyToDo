@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Input, Select, Space, Row, Col, DatePicker, message, Popconfirm, Drawer, Form, Descriptions, Popover, Checkbox, Upload } from 'antd';
+import { Table, Tag, Button, Input, Select, Space, Row, Col, DatePicker, message, Popconfirm, Drawer, Form, Descriptions, Popover, Checkbox, Upload, Typography } from 'antd';
 import { SearchOutlined, DownloadOutlined, DeleteOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons';
-import { fetchNotifications, deleteNotification, updateNotification, fetchConfig } from '../api';
+import { fetchNotifications, deleteNotification, updateNotification, fetchConfig, uploadFile, openFile, downloadAttachment } from '../api';
+import { save } from '@tauri-apps/api/dialog';
+import { writeBinaryFile } from '@tauri-apps/api/fs';
 import type { Notification } from '../api';
 import dayjs from 'dayjs';
 
@@ -9,7 +11,8 @@ const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 const ALL_COLUMNS = [
-  { key: 'title', label: '通知主体' },
+  { key: 'title', label: '通知标题' },
+  { key: 'raw_text', label: '通知内容' },
   { key: 'sender_dept', label: '发件部门' },
   { key: 'status', label: '办理状态' },
   { key: 'priority', label: '重要程度' },
@@ -35,9 +38,11 @@ const NotificationList: React.FC = () => {
   const [form] = Form.useForm();
   
   const [presetLeaders, setPresetLeaders] = useState<string[]>([]);
+  const [presetDepartments, setPresetDepartments] = useState<string[]>([]);
+  const [presetTags, setPresetTags] = useState<{name: string; color: string}[]>([]);
   
   // Column Visibility
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(['title', 'sender_dept', 'status', 'priority', 'event_time']);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(['title', 'raw_text', 'sender_dept', 'status', 'priority', 'event_time']);
 
   const loadData = async () => {
     setLoading(true);
@@ -50,6 +55,10 @@ const NotificationList: React.FC = () => {
       setData(res);
       const leaders = await fetchConfig('preset_leaders');
       if (leaders) setPresetLeaders(leaders);
+      const depts = await fetchConfig('preset_departments');
+      if (depts) setPresetDepartments(depts);
+      const tags = await fetchConfig('preset_tags');
+      if (tags) setPresetTags(tags);
     } catch (e) {
       message.error('加载数据失败');
     } finally {
@@ -71,10 +80,12 @@ const NotificationList: React.FC = () => {
     }
   };
 
-  const handleExport = () => {
-    import('xlsx').then(XLSX => {
+  const handleExport = async () => {
+    try {
+      const XLSX = await import('xlsx');
       const exportData = data.map(item => ({
-        '通知主体': item.title,
+        '通知标题': item.title,
+        '通知内容': item.raw_text || '',
         '发件部门': item.sender_dept || '',
         '联系人': item.contact_person || '',
         '办理状态': item.status,
@@ -83,14 +94,26 @@ const NotificationList: React.FC = () => {
         '获取时间': item.received_time ? dayjs(item.received_time).format('YYYY-MM-DD HH:mm') : '',
         '流转领导': item.routed_leaders || '',
         '办理人': item.handler || '',
-        '部门负责人': item.dept_heads || '',
-        '标签': item.tags || ''
+        '业务标签': item.tags || ''
       }));
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "通知台账");
-      XLSX.writeFile(wb, `值班台账_${dayjs().format('YYYYMMDD')}.xlsx`);
-    });
+      
+      const u8 = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      
+      const savePath = await save({
+        filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }],
+        defaultPath: `值班台账_${dayjs().format('YYYYMMDD')}.xlsx`
+      });
+      
+      if (savePath) {
+        await writeBinaryFile(savePath, new Uint8Array(u8));
+        message.success('导出成功');
+      }
+    } catch (e: any) {
+      message.error('导出失败: ' + e.message);
+    }
   };
 
   const openDrawer = (item: Notification) => {
@@ -110,15 +133,54 @@ const NotificationList: React.FC = () => {
       ] : null,
       routed_leaders: item.routed_leaders ? item.routed_leaders.split(',') : [],
       handler: item.handler || '',
-      attachments: (item.attachments || []).map((f: any) => ({ ...f, status: 'done', url: f.url?.startsWith('/') ? `http://127.0.0.1:8000${f.url}` : f.url }))
+      attachments: item.attachments ? (typeof item.attachments === 'string' ? JSON.parse(item.attachments) : item.attachments).map((f: any) => {
+        let cleanUrl = f.url || '';
+        if (cleanUrl.startsWith('http://127.0.0.1:8000')) {
+          cleanUrl = cleanUrl.replace('http://127.0.0.1:8000', '');
+        }
+        return { ...f, status: 'done', url: cleanUrl };
+      }) : []
     });
     setDrawerVisible(true);
   };
 
-  
   const normFile = (e: any) => {
     if (Array.isArray(e)) return e;
     return e?.fileList;
+  };
+
+  const customUpload = async (options: any) => {
+    const { file, onSuccess, onError } = options;
+    try {
+      const buffer = await file.arrayBuffer();
+      const path = await uploadFile(file.name, new Uint8Array(buffer));
+      onSuccess({ url: path });
+    } catch (e) {
+      onError(e);
+    }
+  };
+  
+  const handlePreview = async (file: any) => {
+    let path = file.response?.url || file.url;
+    if (path) {
+      try {
+        await openFile(path);
+      } catch (e: any) {
+        message.error(e);
+      }
+    }
+  };
+
+  const handleDownload = async (file: any) => {
+    let path = file.response?.url || file.url;
+    if (path) {
+      try {
+        const saved = await downloadAttachment(path, file.name);
+        if (saved) message.success('附件已另存为');
+      } catch (e: any) {
+        message.error('保存失败: ' + e);
+      }
+    }
   };
 
   const handleDrawerSave = async () => {
@@ -135,7 +197,13 @@ const NotificationList: React.FC = () => {
         event_end: (values.event_time && values.event_time[1]) ? values.event_time[1].format('YYYY-MM-DD HH:mm:ss') : null,
         routed_leaders: Array.isArray(values.routed_leaders) ? values.routed_leaders.join(',') : values.routed_leaders,
         handler: values.handler,
-        attachments: values.attachments ? values.attachments.map((f: any) => ({ uid: f.uid, name: f.name, url: (f.response?.url || f.url)?.startsWith('/') ? `http://127.0.0.1:8000${f.response?.url || f.url}` : (f.response?.url || f.url) })) : []
+        attachments: values.attachments ? JSON.stringify(values.attachments.map((f: any) => {
+          let cleanUrl = (f.response?.url || f.url) || '';
+          if (cleanUrl.startsWith('http://127.0.0.1:8000')) {
+            cleanUrl = cleanUrl.replace('http://127.0.0.1:8000', '');
+          }
+          return { uid: f.uid, name: f.name, url: cleanUrl };
+        })) : null
       };
       
       await updateNotification(selectedItem!.id!, payload);
@@ -149,14 +217,22 @@ const NotificationList: React.FC = () => {
 
   const columnRenderers: Record<string, any> = {
     title: { 
-      title: '通知主体', 
+      title: '通知标题', 
       dataIndex: 'title', 
-      width: '25%', 
+      width: '20%', 
       render: (text: string, record: Notification) => (
         <a onClick={() => openDrawer(record)}>{text}</a>
-      )
+      ),
+      sorter: (a: any, b: any) => (a.title || '').localeCompare(b.title || '')
     },
-    sender_dept: { title: '发件部门', dataIndex: 'sender_dept', sorter: (a: any, b: any) => a.sender_dept?.localeCompare(b.sender_dept) },
+    raw_text: {
+      title: '通知内容',
+      dataIndex: 'raw_text',
+      width: '25%',
+      render: (text: string) => <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }} title={text}>{text}</div>,
+      sorter: (a: any, b: any) => (a.raw_text || '').localeCompare(b.raw_text || '')
+    },
+    sender_dept: { title: '发件部门', dataIndex: 'sender_dept', sorter: (a: any, b: any) => (a.sender_dept || '').localeCompare(b.sender_dept || '') },
     status: {
       title: '办理状态',
       dataIndex: 'status',
@@ -187,13 +263,14 @@ const NotificationList: React.FC = () => {
       render: (text: string) => text ? dayjs(text).format('MM-DD HH:mm') : '-',
       sorter: (a: any, b: any) => dayjs(a.received_time).valueOf() - dayjs(b.received_time).valueOf()
     },
-    contact_person: { title: '联系人', dataIndex: 'contact_person' },
-    routed_leaders: { title: '流转领导', dataIndex: 'routed_leaders' },
-    handler: { title: '办理人', dataIndex: 'handler' },
+    contact_person: { title: '联系人', dataIndex: 'contact_person', sorter: (a: any, b: any) => (a.contact_person || '').localeCompare(b.contact_person || '') },
+    routed_leaders: { title: '流转领导', dataIndex: 'routed_leaders', sorter: (a: any, b: any) => (a.routed_leaders || '').localeCompare(b.routed_leaders || '') },
+    handler: { title: '办理人', dataIndex: 'handler', sorter: (a: any, b: any) => (a.handler || '').localeCompare(b.handler || '') },
     tags: { 
       title: '业务标签', 
       dataIndex: 'tags',
-      render: (text: string) => text ? <Tag color="cyan">{text}</Tag> : '-'
+      render: (text: string) => text ? <Tag color="cyan">{text}</Tag> : '-',
+      sorter: (a: any, b: any) => (a.tags || '').localeCompare(b.tags || '')
     }
   };
 
@@ -249,6 +326,9 @@ const NotificationList: React.FC = () => {
         </Col>
         <Col span={8} style={{ textAlign: 'right' }}>
           <Space>
+            <Typography.Text type="secondary" style={{ marginRight: 8 }}>
+              共查询到 {data.length} 条记录
+            </Typography.Text>
             <Popover content={columnConfigContent} title="显示字段配置" trigger="click" placement="bottomRight">
               <Button icon={<SettingOutlined />}>字段设置</Button>
             </Popover>
@@ -292,6 +372,7 @@ const NotificationList: React.FC = () => {
               </Form.Item>
                             <Form.Item name="sender_dept" label="发件部门 (可修改)">
                 <Select mode="tags" placeholder="选择或输入" allowClear>
+                  {presetDepartments.map(dept => <Option key={dept} value={dept}>{dept}</Option>)}
                 </Select>
               </Form.Item>
               <Form.Item name="contact_person" label="原联系人及电话 (可修改)">
@@ -299,6 +380,7 @@ const NotificationList: React.FC = () => {
               </Form.Item>
               <Form.Item name="tags" label="业务标签 (可修改)">
                 <Select mode="tags" placeholder="选择或输入标签" allowClear>
+                  {presetTags.map(tag => <Option key={tag.name} value={tag.name}>{tag.name}</Option>)}
                 </Select>
               </Form.Item>
               <Form.Item name="raw_text" label="原文内容 (可编辑)">
@@ -327,9 +409,9 @@ const NotificationList: React.FC = () => {
               <Form.Item name="handler" label="办理人 (可编辑)">
                 <Input placeholder="输入办理人姓名" />
               </Form.Item>
-              <Form.Item name="attachments" label="附件管理 (可修改)" valuePropName="fileList" getValueFromEvent={normFile}>
-                <Upload.Dragger multiple action="http://localhost:8000/api/upload" showUploadList={true}>
-                  <p className="ant-upload-text">点击或拖拽文件上传</p>
+              <Form.Item name="attachments" label="附件管理 (支持拖拽, 点击文件打开本地路径)" valuePropName="fileList" getValueFromEvent={normFile}>
+                <Upload.Dragger multiple customRequest={customUpload} onPreview={handlePreview} onDownload={handleDownload} showUploadList={{ showDownloadIcon: true, showRemoveIcon: true }}>
+                  <p className="ant-upload-text">点击或拖拽文件上传至本地目录</p>
                 </Upload.Dragger>
               </Form.Item>
               <Form.Item name="routed_leaders" label="流转领导记录 (支持多选)">
