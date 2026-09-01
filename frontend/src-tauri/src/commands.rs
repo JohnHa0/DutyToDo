@@ -103,18 +103,25 @@ pub async fn extract_nlp(text: String) -> Result<Value, String> {
     use regex::Regex;
     
     let fallback = || {
-        // Regex fallback for time extraction (e.g. 2023-10-01 14:00, 明天上午10点)
-        let time_re = Regex::new(r"(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日号]?\s*\d{1,2}[:点]\d{1,2}?|今天|明天|后天|上午|下午|晚上)").unwrap();
-        let time_match = time_re.find(&text).map(|m| m.as_str()).unwrap_or("");
+        let time_re = Regex::new(r"(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日号]?\s*\d{1,2}[:点]\d{1,2}?)").unwrap();
+        // If regex finds a time, we try to extract it. To keep it simple, we just extract standard-looking times.
+        let time_match = time_re.find(&text).map(|m| {
+            let s = m.as_str().replace("年","-").replace("月","-").replace("日","").replace("号","").replace("点",":");
+            s
+        }).unwrap_or_else(|| "".to_string());
 
-        // Simple place extraction (e.g. 会议室, 办公室)
-        let loc_re = Regex::new(r"([\u4e00-\u9fa5A-Za-z0-9_]+(会议室|办公室|大厅|楼|中心|局))").unwrap();
-        let loc_match = loc_re.find(&text).map(|m| m.as_str()).unwrap_or("");
+        let dept_re = Regex::new(r"([\u4e00-\u9fa5]{2,10}(办公厅|局|委|办|处|科))").unwrap();
+        let dept_match = dept_re.find(&text).map(|m| m.as_str()).unwrap_or("");
+
+        let contact_re = Regex::new(r"(联系人[:：\s]*([\u4e00-\u9fa5]{2,4})|电话[:：\s]*(\d{8,11}))").unwrap();
+        let contact_match = contact_re.find(&text).map(|m| m.as_str()).unwrap_or("");
 
         serde_json::json!({
-            "time": time_match,
-            "location": loc_match,
-            "people": ""
+            "title": "",
+            "event_time": if time_match.is_empty() { None } else { Some(time_match.clone()) },
+            "event_end": if time_match.is_empty() { None } else { Some(time_match) },
+            "sender_dept": dept_match,
+            "contact_person": contact_match
         })
     };
 
@@ -128,28 +135,78 @@ pub async fn extract_nlp(text: String) -> Result<Value, String> {
         return Ok(fallback());
     }
 
+    let default_prompt = "你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 通知标题\n- event_time: 开始或截止时间 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话".to_string();
+    let sys_prompt = crate::commands::get_config("llm_system_prompt".to_string()).unwrap_or(default_prompt);
+    let text_clone = text.clone();
+
     let result = tokio::task::spawn_blocking(move || {
         use llama_cpp_2::llama_backend::LlamaBackend;
         use llama_cpp_2::model::LlamaModel;
         use llama_cpp_2::model::params::LlamaModelParams;
         use llama_cpp_2::context::params::LlamaContextParams;
+        use llama_cpp_2::llama_batch::LlamaBatch;
+        use llama_cpp_2::token::data_array::LlamaTokenDataArray;
 
         let backend = LlamaBackend::init().map_err(|e| e.to_string())?;
         let model_params = LlamaModelParams::default();
         let model = LlamaModel::load_from_file(&backend, &model_path, &model_params)
             .map_err(|e| e.to_string())?;
             
-        let ctx_params = LlamaContextParams::default().with_n_ctx(Some(1024.try_into().unwrap()));
-        let mut _ctx = model.new_context(&backend, ctx_params)
+        let ctx_params = LlamaContextParams::default().with_n_ctx(Some(2048.try_into().unwrap()));
+        let mut ctx = model.new_context(&backend, ctx_params)
             .map_err(|e| e.to_string())?;
             
-        // TODO: Implement full prompt construction, tokenization, batch evaluation and sampling.
-        // Due to the complexity of GGUF sampling, this is a placeholder representing a successful inference.
-        Ok::<Value, String>(serde_json::json!({
-            "time": "LLM提取: 详见通知",
-            "location": "LLM提取: 详见通知",
-            "people": "LLM解析成功"
-        }))
+        let prompt_str = format!("{}\n\n通知原文：\n{}", sys_prompt, text_clone);
+        let tokens_list = model.str_to_token(&prompt_str, llama_cpp_2::model::AddBos::Always)
+            .map_err(|e| e.to_string())?;
+
+        let mut batch = LlamaBatch::new(2048, 1);
+        let last_index = (tokens_list.len() - 1) as i32;
+        
+        for (i, token) in (0_i32..).zip(tokens_list.into_iter()) {
+            let is_last = i == last_index;
+            batch.add(token, i, &[0], is_last).map_err(|e| e.to_string())?;
+        }
+
+        ctx.decode(&mut batch).map_err(|e| e.to_string())?;
+
+        let mut n_cur = batch.n_tokens();
+        let mut output_str = String::new();
+
+        while n_cur <= 2048 {
+            let candidates = ctx.candidates_ith(batch.n_tokens() - 1);
+            let mut candidates_p = LlamaTokenDataArray::from_iter(candidates, false);
+            let new_token_id = candidates_p.sample_token_greedy();
+
+            if new_token_id == model.token_eos() {
+                break;
+            }
+
+            let token_bytes = model.token_to_piece_bytes(new_token_id, 128, false, None).unwrap_or_default();
+            output_str.push_str(&String::from_utf8_lossy(&token_bytes));
+
+            batch.clear();
+            batch.add(new_token_id, n_cur, &[0], true).map_err(|e| e.to_string())?;
+            n_cur += 1;
+            
+            if ctx.decode(&mut batch).is_err() {
+                break;
+            }
+        }
+
+        let json_start = output_str.find('{');
+        let json_end = output_str.rfind('}');
+        
+        if let (Some(s), Some(e)) = (json_start, json_end) {
+            if s < e {
+                let json_slice = &output_str[s..=e];
+                if let Ok(v) = serde_json::from_str::<Value>(json_slice) {
+                    return Ok::<Value, String>(v);
+                }
+            }
+        }
+
+        Err("Failed to parse JSON from LLM".to_string())
     }).await.map_err(|e| e.to_string())?;
 
     match result {

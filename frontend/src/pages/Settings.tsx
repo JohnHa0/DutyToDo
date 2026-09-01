@@ -45,10 +45,12 @@ const Settings: React.FC = () => {
       const recorder = await fetchConfig('default_recorder');
       const llm_enabled = await fetchConfig('llm_enabled');
       const llm_model_path = await fetchConfig('llm_model_path');
+      const llm_system_prompt = await fetchConfig('llm_system_prompt');
       form.setFieldsValue({
         default_recorder: recorder || '当前值班员',
         llm_enabled: llm_enabled || 'false',
-        llm_model_path: llm_model_path || ''
+        llm_model_path: llm_model_path || '',
+        llm_system_prompt: llm_system_prompt || '你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 通知标题\n- event_time: 开始或截止时间 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话'
       });
     };
     loadSettings();
@@ -59,6 +61,7 @@ const Settings: React.FC = () => {
       await saveConfig('default_recorder', values.default_recorder);
       await saveConfig('llm_enabled', values.llm_enabled);
       await saveConfig('llm_model_path', values.llm_model_path);
+      await saveConfig('llm_system_prompt', values.llm_system_prompt);
       message.success('基础设置保存成功');
     } catch (e) {
       message.error('保存失败');
@@ -153,6 +156,11 @@ const Settings: React.FC = () => {
                   if (path) form.setFieldsValue({ llm_model_path: path });
                 }}>选择模型</Button>
               </Space.Compact>
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item name="llm_system_prompt" label="大模型系统提示词 (System Prompt) - 建议不熟悉Prompt的用户保持默认" rules={[{ required: true, message: '系统提示词不能为空' }]}>
+              <Input.TextArea rows={8} placeholder="在此自定义提示词约束模型提取..." />
             </Form.Item>
           </Col>
           <Col span={24}>
