@@ -71,28 +71,33 @@ const Settings: React.FC = () => {
 
   const handleSaveBasic = async (values: any) => {
     try {
-      await saveConfig('default_recorder', values.default_recorder);
-      await saveConfig('llm_enabled', values.llm_enabled);
-      await saveConfig('llm_model_path', values.llm_model_path);
-      await saveConfig('reminder_enabled', values.reminder_enabled);
-      await saveConfig('reminder_advance_minutes', values.reminder_advance_minutes);
-      await saveConfig('bg_image', values.bg_image);
-      await saveConfig('bg_opacity', values.bg_opacity.toString());
-      await saveConfig('bg_blur', values.bg_blur.toString());
+      if (values.default_recorder !== undefined) await saveConfig('default_recorder', values.default_recorder);
+      if (values.llm_enabled !== undefined) await saveConfig('llm_enabled', values.llm_enabled);
+      if (values.llm_model_path !== undefined) await saveConfig('llm_model_path', values.llm_model_path);
+      if (values.reminder_enabled !== undefined) await saveConfig('reminder_enabled', values.reminder_enabled);
+      if (values.reminder_advance_minutes !== undefined) await saveConfig('reminder_advance_minutes', values.reminder_advance_minutes);
+      
+      if (values.bg_image !== undefined) await saveConfig('bg_image', values.bg_image);
+      if (values.bg_opacity !== undefined) await saveConfig('bg_opacity', values.bg_opacity.toString());
+      if (values.bg_blur !== undefined) await saveConfig('bg_blur', values.bg_blur.toString());
       
       // Dispatch custom event to notify App.tsx immediately without refresh
       window.dispatchEvent(new Event('theme_updated'));
 
-      const finalPrompt = values.llm_system_prompt?.trim() || '你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话';
-      await saveConfig('llm_system_prompt', finalPrompt);
+      if (values.llm_system_prompt !== undefined) {
+        const finalPrompt = values.llm_system_prompt?.trim() || '你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段及要求：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门。如果通知中未明确说明，请根据内容智能推测，**必须且只能**从以下列表中选择最相关的一个：[信息保障科, 装备管理科, 作训科, 战勤计划科, 组织纪检科, 人力资源科, 情报科]。若都不匹配请留空，绝不要输出问号或其它字符。\n- routed_dept: 下发科室/承办科室。即该通知要求哪个科室去执行或参加。若无，返回空\n- tags: 业务标签。请根据通知内容智能推测，**必须且只能**从以下预设标签中选择相关的（可多选，逗号分隔）：[集会教育, 业务工作, 装备保障, 后勤财务, 信息系统, 材料上报, 训练考核, 值班值勤]。若都不匹配请留空，绝不要输出问号或未知等其它字符。\n- contact_person: 联系人与电话';
+        await saveConfig('llm_system_prompt', finalPrompt);
 
-      if (!values.llm_system_prompt?.trim()) {
-        form.setFieldsValue({ llm_system_prompt: finalPrompt });
-        message.success('基础设置保存成功 (已自动为您恢复默认系统提示词)');
-      } else {
-        message.success('基础设置保存成功');
+        if (!values.llm_system_prompt?.trim()) {
+          form.setFieldsValue({ llm_system_prompt: finalPrompt });
+          message.success('基础设置保存成功 (已自动为您恢复默认系统提示词)');
+          return;
+        }
       }
+
+      message.success('设置保存成功');
     } catch (e) {
+      console.error(e);
       message.error('保存失败');
     }
   };

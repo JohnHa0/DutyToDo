@@ -236,7 +236,8 @@ pub async fn extract_nlp(text: String, state: tauri::State<'_, crate::llm::LlmSt
             "event_time": if time_match.is_empty() { None } else { Some(time_match.clone()) },
             "event_end": if time_match.is_empty() { None } else { Some(time_match) },
             "sender_dept": dept_match,
-            "contact_person": contact_match
+            "contact_person": contact_match,
+            "tags": ""
         })
     };
 
@@ -245,8 +246,9 @@ pub async fn extract_nlp(text: String, state: tauri::State<'_, crate::llm::LlmSt
         return Ok(fallback()); // Return fallback silently if not enabled
     }
 
-    let default_prompt = "你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门\n- contact_person: 联系人与电话".to_string();
-    let sys_prompt_base = crate::commands::get_config("llm_system_prompt".to_string()).unwrap_or(default_prompt);
+    let default_prompt = "你是一个专业的政府机关公文提取助手。请从以下通知中提取关键信息，并严格输出合法的 JSON 格式。如果找不到对应信息，请返回空字符串。\n要求输出的JSON字段及要求：\n- title: 提炼通知核心内容和需要执行的具体任务，生成一句话摘要作为通知标题\n- event_time: 智能推断开始或截止时间，务必推断出年份和具体日期 (YYYY-MM-DD HH:mm:ss 格式)\n- event_end: 结束时间 (若只有一个时间，与 event_time 保持一致)\n- sender_dept: 发件/主办部门。如果通知中未明确说明，请根据内容智能推测，**必须且只能**从以下列表中选择最相关的一个：[信息保障科, 装备管理科, 作训科, 战勤计划科, 组织纪检科, 人力资源科, 情报科]。若都不匹配请留空，绝不要输出问号或其它字符。\n- routed_dept: 下发科室/承办科室。即该通知要求哪个科室去执行或参加。若无，返回空\n- tags: 业务标签。请根据通知内容智能推测，**必须且只能**从以下预设标签中选择相关的（可多选，逗号分隔）：[集会教育, 业务工作, 装备保障, 后勤财务, 信息系统, 材料上报, 训练考核, 值班值勤]。若都不匹配请留空，绝不要输出问号或未知等其它字符。\n- contact_person: 联系人与电话".to_string();
+    let sys_prompt_base = crate::commands::get_config("llm_system_prompt".to_string()).unwrap_or_else(|_| "".to_string());
+    let sys_prompt_base = if sys_prompt_base.trim().is_empty() { default_prompt } else { sys_prompt_base };
     
     // Inject current date context so LLM can infer relative dates like "本周五"
     let current_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
