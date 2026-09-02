@@ -47,5 +47,20 @@ pub fn init_db() -> Result<Connection> {
         [],
     )?;
 
+    // Prepopulate default presets if they do not exist (or if they are empty arrays "[]")
+    conn.execute(
+        "INSERT INTO system_config (key, value) VALUES 
+        ('preset_departments', '[\"信息保障科\",\"装备管理科\",\"作训科\",\"战勤计划科\",\"组织纪检科\",\"人力资源科\",\"情报科\"]')
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE value = '[]'",
+        [],
+    )?;
+
+    conn.execute(
+        "INSERT INTO system_config (key, value) VALUES 
+        ('preset_tags', '[{\"name\":\"集会教育\",\"color\":\"#f50\"},{\"name\":\"业务工作\",\"color\":\"#2db7f5\"},{\"name\":\"装备保障\",\"color\":\"#87d068\"},{\"name\":\"后勤财务\",\"color\":\"#108ee9\"},{\"name\":\"信息系统\",\"color\":\"purple\"},{\"name\":\"材料上报\",\"color\":\"volcano\"},{\"name\":\"训练考核\",\"color\":\"magenta\"},{\"name\":\"值班值勤\",\"color\":\"#108ee9\"}]')
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE value = '[]'",
+        [],
+    )?;
+
     Ok(conn)
 }
