@@ -1,5 +1,5 @@
 use serde_json::Value;
-use crate::models::{Notification, SystemConfig};
+use crate::models::Notification;
 use crate::database;
 use std::fs;
 use std::path::PathBuf;

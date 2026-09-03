@@ -23,6 +23,7 @@ pub struct Notification {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct SystemConfig {
     pub id: Option<i32>,
     pub key: String,
