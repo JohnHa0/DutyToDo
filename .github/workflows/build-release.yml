@@ -75,6 +75,7 @@ jobs:
   build-macos:
     name: Build macOS DMG
     runs-on: macos-latest
+    needs: build-linux
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
