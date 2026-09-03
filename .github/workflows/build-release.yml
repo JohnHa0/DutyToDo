@@ -57,6 +57,8 @@ jobs:
       - name: Install Frontend Dependencies
         run: |
           cd frontend
+          rm -f package-lock.json
+          npm config set registry https://registry.npmjs.org/
           npm install
           
       - name: Build Tauri App
@@ -90,6 +92,8 @@ jobs:
       - name: Install Frontend Dependencies
         run: |
           cd frontend
+          rm -f package-lock.json
+          npm config set registry https://registry.npmjs.org/
           npm install
 
       - name: Build Tauri App (Universal)
