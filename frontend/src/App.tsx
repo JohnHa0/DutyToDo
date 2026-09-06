@@ -89,7 +89,6 @@ const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [bgImage, setBgImage] = useState<string>('');
   const [bgOpacity, setBgOpacity] = useState<number>(0.4);
-  const [bgBlur, setBgBlur] = useState<number>(10);
 
   const loadTheme = async () => {
     let img = await fetchConfig('bg_image');
@@ -112,9 +111,6 @@ const App: React.FC = () => {
     
     const op = await fetchConfig('bg_opacity');
     if (op !== null) setBgOpacity(parseFloat(op));
-    
-    const bl = await fetchConfig('bg_blur');
-    if (bl !== null) setBgBlur(parseInt(bl));
   };
 
   useEffect(() => {
@@ -122,7 +118,6 @@ const App: React.FC = () => {
     const handlePreview = async (e: any) => {
       const detail = e.detail;
       if (detail.bg_opacity !== undefined) setBgOpacity(parseFloat(detail.bg_opacity));
-      if (detail.bg_blur !== undefined) setBgBlur(parseInt(detail.bg_blur));
       if (detail.bg_image !== undefined && detail.bg_image !== bgImage) {
         if (!detail.bg_image) {
           setBgImage('');
