@@ -71,7 +71,7 @@ pub fn start_llm_thread() -> mpsc::Sender<LlmRequest> {
 
                     let model = current_model.as_ref().unwrap();
                     let n_threads = std::thread::available_parallelism()
-                        .map(|n| (n.get() as u32).saturating_sub(2).max(2))
+                        .map(|n| (n.get() as i32).saturating_sub(2).max(2))
                         .unwrap_or(2);
                     let ctx_params = LlamaContextParams::default()
                         .with_n_ctx(Some(2048.try_into().unwrap()))
