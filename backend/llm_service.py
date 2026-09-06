@@ -60,7 +60,8 @@ Current Date and Time for Reference: {datetime.now().strftime('%Y-%m-%d %H:%M:%S
 Schema:
 {{
   "title": "A short and concise summary of the notification (max 15 characters)",
-  "sender_dept": "The department sending the notification. Pay special attention to the beginning of the text (e.g., '管理科通知' means '管理科'). Infer if implicit.",
+  "sender_dept": "The department sending the notification. Infer if implicit from ['信息保障科', '装备管理科', '作训科', '战勤计划科', '组织纪检科', '人力资源科', '情报科'].",
+  "tags": "Business tags. Infer from ['集会教育', '业务工作', '装备保障', '后勤财务', '信息系统', '材料上报', '训练考核', '值班值勤']. Comma-separated if multiple.",
   "contact_person": "Contact person's name AND their phone number (e.g. '张三 13800138000'). You MUST include the phone number if it exists in the text.",
   "event_start": "YYYY-MM-DD HH:MM:SS format, or null if no time. Resolve relative dates like '明天' (tomorrow), '下午2:30' based on the Current Date. E.g., '{datetime.now().strftime('%Y-%m-%d')} 14:30:00'.",
   "event_end": "YYYY-MM-DD HH:MM:SS format for the end of the time range, or null if it's not a range"

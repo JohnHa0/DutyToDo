@@ -1,0 +1,4 @@
+use llama_cpp_2::context::params::LlamaContextParams;
+fn test() {
+    let p = LlamaContextParams::default().with_n_threads(2);
+}

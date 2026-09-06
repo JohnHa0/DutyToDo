@@ -91,12 +91,20 @@ const EntryForm: React.FC = () => {
       const validEventTime = res.event_time && dayjs(res.event_time).isValid() ? dayjs(res.event_time) : null;
       const validEventEnd = res.event_end && dayjs(res.event_end).isValid() ? dayjs(res.event_end) : validEventTime;
 
+      const parseStringToArray = (str: any) => {
+        if (!str) return [];
+        if (Array.isArray(str)) return str;
+        return str.split(/[,，、]/).map((s: string) => s.trim()).filter(Boolean);
+      };
+
       form.setFieldsValue({
         title: res.title || '',
         raw_text: rawText,
-        sender_dept: res.sender_dept || '',
+        sender_dept: parseStringToArray(res.sender_dept),
         contact_person: res.contact_person || '',
+        tags: parseStringToArray(res.tags),
         event_time: validEventTime ? [validEventTime, validEventEnd] : null,
+        handler: res.routed_dept || '',
       });
     } catch (error: any) {
       if (typeof error === 'string') {

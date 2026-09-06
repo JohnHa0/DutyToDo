@@ -153,8 +153,8 @@ const App: React.FC = () => {
         {`
           .glass-card, .ant-card, .ant-descriptions, .fc-view-harness {
              background: rgba(255, 255, 255, ${bgOpacity}) !important;
-             backdrop-filter: blur(${bgBlur}px) !important;
-             -webkit-backdrop-filter: blur(${bgBlur}px) !important;
+             backdrop-filter: none !important;
+             -webkit-backdrop-filter: none !important;
              border-color: rgba(255, 255, 255, 0.18) !important;
           }
           .ant-card-head {
@@ -180,7 +180,7 @@ const App: React.FC = () => {
           onCollapse={(value) => setCollapsed(value)}
           breakpoint="lg"
           collapsedWidth="80"
-          style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'rgba(0, 21, 41, 0.85)', backdropFilter: 'blur(10px)' }}
+          style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'rgba(0, 21, 41, 0.95)' }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div data-tauri-drag-region style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>
@@ -209,12 +209,12 @@ const App: React.FC = () => {
               </Menu>
             </div>
             <div style={{ padding: '16px 8px', color: 'rgba(255, 255, 255, 0.45)', textAlign: 'center', fontSize: '12px', flexShrink: 0, whiteSpace: 'pre-line', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              {collapsed ? 'v2.0' : `值班助手 v2.0.0\n系统组© ${new Date().getFullYear()}`}
+              {collapsed ? 'v2.0' : `值班助手 v2.0.2\n系统组© ${new Date().getFullYear()}`}
             </div>
           </div>
         </Sider>
         <Layout className="site-layout" style={{ background: 'transparent' }}>
-          <Header data-tauri-drag-region style={{ padding: '0 16px 0 24px', background: `rgba(255, 255, 255, ${Math.min(0.9, bgOpacity + 0.2)})`, backdropFilter: `blur(${bgBlur}px)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.05)' } as any}>
+          <Header data-tauri-drag-region style={{ padding: '0 16px 0 24px', background: `rgba(255, 255, 255, ${Math.min(0.95, bgOpacity + 0.3)})`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.05)' } as any}>
             <Title level={4} style={{ margin: 0 }}>值班通知智能流转系统</Title>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <WindowControls />

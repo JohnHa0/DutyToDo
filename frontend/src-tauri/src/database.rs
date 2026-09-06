@@ -47,6 +47,11 @@ pub fn init_db() -> Result<Connection> {
         [],
     )?;
 
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_notifications_event_time ON notifications(event_time)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_notifications_sender_dept ON notifications(sender_dept)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_notifications_id_desc ON notifications(id DESC)", [])?;
+
     // Prepopulate default presets if they do not exist (or if they are empty arrays "[]")
     conn.execute(
         "INSERT INTO system_config (key, value) VALUES 
