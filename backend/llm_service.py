@@ -34,7 +34,7 @@ class LLMManager:
                     model_path=model_path,
                     n_ctx=2048,
                     n_threads=4, # Adapt based on typical Mac
-                    n_gpu_layers=1 # Use Metal if compiled with it
+                    n_gpu_layers=-1 # Use Metal/GPU fully if compiled with it
                 )
                 self.model_path = model_path
                 print("LLM Loaded successfully.")

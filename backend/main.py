@@ -279,7 +279,7 @@ def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db
         
         # Fallback time extraction for casual texts like "9月4日", "下周三"
         if not result.event_time:
-            time_pattern = r'(\d{1,2}月\d{1,2}日(至\d{1,2}月\d{1,2}日)?)|(下周[一二三四五六日])'
+            time_pattern = r'((?:20\d{2}年)?\d{1,2}月\d{1,2}日(?:[\s\-\~至]*(?:20\d{2}年)?\d{1,2}月\d{1,2}日)?(?:[\s]*(?:早上|上午|中午|下午|晚上)?\d{1,2}[:：点]\d{1,2}分?)?)|(下周[一二三四五六日])|(明天|后天)(上午|下午|晚上)?'
             t_match = re.search(time_pattern, text)
             if t_match:
                 pass # Jionlp is usually good enough, fallback not fully implemented
@@ -308,7 +308,7 @@ def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db
             result.sender_dept = found_dept
         else:
             # Extended regex for grassroots units
-            dept_pattern = r'[\u4e00-\u9fa5]{2,10}(省|市|区|局|厅|委|部|办|处|科|中心|支队|大队)'
+            dept_pattern = r'[\u4e00-\u9fa5]{2,15}(?:省|市|区|县|镇|乡|局|厅|委|部|办|处|科|股|中心|支队|大队|中队|所|站)'
             match = re.search(dept_pattern, text)
             if match:
                 result.sender_dept = match.group(0)
@@ -318,7 +318,7 @@ def extract_information(request: NLPExtractRequest, db: Session = Depends(get_db
     # 3. Extract Phone numbers / Contacts
     try:
         # Advanced regex for "Name: phone / short phone / landline"
-        contact_pattern = r'(联系人[:：\s]*([\u4e00-\u9fa5]{2,4})?)?[:：\s]*([\d\-]{6,12})'
+        contact_pattern = r'(?:联系人[:：\s]*)?([\u4e00-\u9fa5]{2,4})?[:：\s]*((?:1[3-9]\d{9})|(?:0\d{2,3}-?\d{7,8}))'
         matches = re.finditer(contact_pattern, text)
         phones = []
         name = ""

@@ -300,7 +300,6 @@ const Dashboard: React.FC = () => {
       >
         <div className="timeline-container">
           <Timeline mode="left" items={timelineItems} />
-          <div className="fade-mask" />
         </div>
       </Card>
 
