@@ -209,6 +209,11 @@ const StatsView: React.FC = () => {
           </div>
         )}
         <ReactTooltip id="heatmap-tooltip" />
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <Typography.Text type="secondary">
+            该时间段内共计收文 <strong style={{ color: '#1890ff', fontSize: '18px' }}>{filteredData.length}</strong> 件
+          </Typography.Text>
+        </div>
       </Card>
 
       <Row gutter={24}>
